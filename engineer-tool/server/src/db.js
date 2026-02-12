@@ -56,9 +56,16 @@ async function migrate(p) {
       category_id TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
+      steps TEXT,
+      solution TEXT,
       created_at TEXT NOT NULL
     );
   `);
+
+  // Backward-compatible migrations for older databases that already
+  // have the `issues` table without these columns.
+  await p.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS steps TEXT;`);
+  await p.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS solution TEXT;`);
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS tickets (
