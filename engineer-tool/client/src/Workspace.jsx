@@ -14,6 +14,257 @@ function fmtISODateInput(value) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+
+function normalizeStepsText(stepsText) {
+  return (stepsText || "")
+    .split("\n")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function Modal({ open, title, onClose, children }) {
+  if (!open) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        zIndex: 50,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(920px, 96vw)",
+          maxHeight: "86vh",
+          overflow: "auto",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 14,
+          background: "rgba(10,12,20,0.98)",
+          padding: 14,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
+          <button onClick={onClose} title="Close">
+            ✕
+          </button>
+        </div>
+        <div style={{ marginTop: 12 }}>{children}</div>
+      </div>
+    </div>
+    <Modal
+      open={!!activeIssue}
+      title={activeIssue ? `Шаблон: ${activeIssue.title}` : "Шаблон"}
+      onClose={() => setActiveIssue(null)}
+    >
+      {activeIssue ? (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ opacity: 0.85, fontSize: 13 }}>
+            {activeIssue.category_name ? `Категория: ${activeIssue.category_name}` : `category_id: ${activeIssue.category_id}`}
+          </div>
+
+          {activeIssue.description ? (
+            <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Описание / симптомы</div>
+              <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>{activeIssue.description}</div>
+            </div>
+          ) : null}
+
+          <ChecklistRunner stepsText={activeIssue.steps} />
+
+          {activeIssue.solution ? (
+            <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Решение</div>
+              <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>{activeIssue.solution}</div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </Modal>
+
+  );
+}
+
+function ChecklistBuilder({ value, onChange }) {
+  const steps = normalizeStepsText(value);
+  const [draft, setDraft] = useState("");
+
+  function commit(nextSteps) {
+    onChange(nextSteps.join("\n"));
+  }
+
+  function addStep() {
+    const t = (draft || "").trim();
+    if (!t) return;
+    commit([...steps, t]);
+    setDraft("");
+  }
+
+  function removeAt(idx) {
+    const next = steps.filter((_, i) => i !== idx);
+    commit(next);
+  }
+
+  function move(idx, dir) {
+    const j = idx + dir;
+    if (j < 0 || j >= steps.length) return;
+    const next = [...steps];
+    const tmp = next[idx];
+    next[idx] = next[j];
+    next[j] = tmp;
+    commit(next);
+  }
+
+  return (
+    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10, marginBottom: 8 }}>
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>Проверка по шагам (чеклист)</div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Добавь шаг и нажми Enter…"
+          style={{ flex: 1 }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addStep();
+            }
+          }}
+        />
+        <button onClick={addStep}>Добавить</button>
+      </div>
+
+      {steps.length === 0 ? (
+        <div style={{ opacity: 0.8, fontSize: 13 }}>Шагов пока нет. Добавь первый шаг выше.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {steps.map((t, idx) => (
+            <div
+              key={`${idx}-${t}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 8,
+                alignItems: "center",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 10,
+                padding: 8,
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                <div style={{ opacity: 0.7, width: 22, textAlign: "right" }}>{idx + 1}.</div>
+                <div>{t}</div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => move(idx, -1)} disabled={idx === 0} title="Up">
+                  ↑
+                </button>
+                <button onClick={() => move(idx, +1)} disabled={idx === steps.length - 1} title="Down">
+                  ↓
+                </button>
+                <button onClick={() => removeAt(idx)} title="Remove">
+                  🗑
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChecklistRunner({ stepsText }) {
+  const steps = useMemo(() => normalizeStepsText(stepsText), [stepsText]);
+  const [results, setResults] = useState(() => steps.map(() => null));
+  const [resolvedAt, setResolvedAt] = useState(null);
+
+  useEffect(() => {
+    setResults(steps.map(() => null));
+    setResolvedAt(null);
+  }, [stepsText, steps.length]);
+
+  function setResult(idx, val) {
+    if (resolvedAt !== null) return;
+    setResults((prev) => {
+      const next = [...prev];
+      next[idx] = val;
+      return next;
+    });
+    if (val === true) setResolvedAt(idx);
+  }
+
+  const checkedCount = results.filter((x) => x !== null).length;
+
+  return (
+    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontWeight: 800 }}>Чеклист</div>
+        <div style={{ opacity: 0.8, fontSize: 13 }}>
+          {resolvedAt !== null ? `Решено на шаге ${resolvedAt + 1} ✅` : `Проверено: ${checkedCount}/${steps.length}`}
+        </div>
+      </div>
+
+      {steps.length === 0 ? (
+        <div style={{ opacity: 0.85, marginTop: 8 }}>В шаблоне нет шагов.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+          {steps.map((t, idx) => {
+            const r = results[idx];
+            const disabled = resolvedAt !== null && idx !== resolvedAt;
+            return (
+              <div
+                key={`${idx}-${t}`}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 10,
+                  padding: 10,
+                  opacity: disabled ? 0.55 : 1,
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div style={{ opacity: 0.7, width: 22, textAlign: "right" }}>{idx + 1}.</div>
+                  <div style={{ flex: 1 }}>{t}</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button onClick={() => setResult(idx, true)} disabled={disabled} title="Помогло">
+                      ✅
+                    </button>
+                    <button onClick={() => setResult(idx, false)} disabled={disabled} title="Не помогло">
+                      ❌
+                    </button>
+                  </div>
+                </div>
+                {r === true ? <div style={{ marginTop: 8, opacity: 0.9 }}>Помогло — можно закрывать проблему.</div> : null}
+                {r === false ? <div style={{ marginTop: 8, opacity: 0.85 }}>Не помогло — идём дальше.</div> : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ marginTop: 10 }}>
+        <button
+          onClick={() => {
+            setResults(steps.map(() => null));
+            setResolvedAt(null);
+          }}
+          disabled={steps.length === 0}
+        >
+          Сбросить
+        </button>
+      </div>
+    </div>
+  );
+}
+
 }
 
 export default function Workspace({ me, onLogout }) {
@@ -28,6 +279,7 @@ export default function Workspace({ me, onLogout }) {
   // categories/issues
   const [categories, setCategories] = useState([]);
   const [issues, setIssues] = useState([]);
+  const [activeIssue, setActiveIssue] = useState(null);
 
   // tickets
   const [tickets, setTickets] = useState([]);
@@ -431,11 +683,9 @@ export default function Workspace({ me, onLogout }) {
                     style={{ width: "100%", minHeight: 70, marginBottom: 8 }}
                   />
 
-                  <textarea
+                  <ChecklistBuilder
                     value={newIssue.steps}
-                    onChange={(e) => setNewIssue((p) => ({ ...p, steps: e.target.value }))}
-                    placeholder="Проверка по шагам (checklist)"
-                    style={{ width: "100%", minHeight: 70, marginBottom: 8 }}
+                    onChange={(next) => setNewIssue((p) => ({ ...p, steps: next }))}
                   />
 
                   <textarea
@@ -464,7 +714,9 @@ export default function Workspace({ me, onLogout }) {
                     {issues.map((i) => (
                       <div
                         key={i.id}
+                        onClick={() => setActiveIssue(i)}
                         style={{
+                          cursor: "pointer",
                           border: "1px solid rgba(255,255,255,0.08)",
                           borderRadius: 10,
                           padding: 10,
