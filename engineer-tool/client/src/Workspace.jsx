@@ -514,9 +514,15 @@ export default function Workspace({ me, onLogout }) {
     solution: "",
   });
 
+  const [issueSearch, setIssueSearch] = useState("");
+  const [issueCategoryFilter, setIssueCategoryFilter] = useState("");
+
   // tickets
   const [tickets, setTickets] = useState([]);
   const [activeTicket, setActiveTicket] = useState(null);
+  const [ticketFilter, setTicketFilter] = useState("open"); // open | closed
+  const [ticketSearchOpen, setTicketSearchOpen] = useState("");
+  const [ticketSearchClosed, setTicketSearchClosed] = useState("");
   const [ticketForm, setTicketForm] = useState({
     site: "Town House 5 / V",
     visit_date: fmtISODateInput(new Date()),
@@ -782,6 +788,40 @@ export default function Workspace({ me, onLogout }) {
     return issues.filter((x) => String(x.category_id) === String(cid));
   }, [issues, ticketForm.category_id]);
 
+  const ticketSearch = ticketFilter === "open" ? ticketSearchOpen : ticketSearchClosed;
+  const setTicketSearch = (v) => {
+    if (ticketFilter === "open") setTicketSearchOpen(v);
+    else setTicketSearchClosed(v);
+  };
+
+  const visibleTickets = useMemo(() => {
+    const q = (ticketSearch || "").trim().toLowerCase();
+    return tickets.filter((t) => {
+      const st = (t.status || "open").toLowerCase();
+      if (ticketFilter && st !== ticketFilter) return false;
+      if (!q) return true;
+      return (
+        (t.site || "").toLowerCase().includes(q) ||
+        (t.description || "").toLowerCase().includes(q) ||
+        (t.category_name || "").toLowerCase().includes(q) ||
+        (t.issue_title || "").toLowerCase().includes(q)
+      );
+    });
+  }, [tickets, ticketFilter, ticketSearch]);
+
+  const visibleIssues = useMemo(() => {
+    const q = (issueSearch || "").trim().toLowerCase();
+    return issues.filter((i) => {
+      if (issueCategoryFilter && String(i.category_id) !== String(issueCategoryFilter)) return false;
+      if (!q) return true;
+      return (
+        (i.title || "").toLowerCase().includes(q) ||
+        (i.description || "").toLowerCase().includes(q) ||
+        (i.solution || "").toLowerCase().includes(q)
+      );
+    });
+  }, [issues, issueSearch, issueCategoryFilter]);
+
   return (
     <div style={{ padding: 16 }}>
       {/* top bar */}
@@ -930,13 +970,43 @@ export default function Workspace({ me, onLogout }) {
                   <button onClick={refreshTickets}>Обновить</button>
                 </div>
 
-                {tickets.length === 0 ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                  <button
+                    onClick={() => setTicketFilter("open")}
+                    style={{
+                      fontWeight: 800,
+                      opacity: ticketFilter === "open" ? 1 : 0.55,
+                      border: "1px solid rgba(255,255,255,0.14)",
+                    }}
+                  >
+                    Open
+                  </button>
+                  <button
+                    onClick={() => setTicketFilter("closed")}
+                    style={{
+                      fontWeight: 800,
+                      opacity: ticketFilter === "closed" ? 1 : 0.55,
+                      border: "1px solid rgba(255,255,255,0.14)",
+                    }}
+                  >
+                    Closed
+                  </button>
+
+                  <input
+                    value={ticketSearch}
+                    onChange={(e) => setTicketSearch(e.target.value)}
+                    placeholder={ticketFilter === "open" ? "Поиск по открытым..." : "Поиск по закрытым..."}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+
+                {visibleTickets.length === 0 ? (
                   <div style={{ opacity: 0.85, marginTop: 8 }}>
                     Пока нет заявок.
                   </div>
                 ) : (
                   <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    {tickets.map((t) => (
+                    {visibleTickets.map((t) => (
                       <div
                         key={t.id}
                         onClick={() => setActiveTicket(t)}
@@ -1111,13 +1181,35 @@ export default function Workspace({ me, onLogout }) {
                   <button onClick={refreshAll}>Обновить</button>
                 </div>
 
-                {issues.length === 0 ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                  <select
+                    value={issueCategoryFilter}
+                    onChange={(e) => setIssueCategoryFilter(e.target.value)}
+                    style={{ minWidth: 220 }}
+                  >
+                    <option value="">Все категории</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    value={issueSearch}
+                    onChange={(e) => setIssueSearch(e.target.value)}
+                    placeholder="Поиск по шаблонам..."
+                    style={{ flex: 1 }}
+                  />
+                </div>
+
+                {visibleIssues.length === 0 ? (
                   <div style={{ opacity: 0.85, marginTop: 8 }}>
                     Пока нет шаблонов.
                   </div>
                 ) : (
                   <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    {issues.map((i) => (
+                    {visibleIssues.map((i) => (
                       <div
                         key={i.id}
                         onClick={() => openIssue(i)}
