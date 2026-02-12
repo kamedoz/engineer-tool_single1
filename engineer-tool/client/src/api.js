@@ -69,6 +69,8 @@ export const CategoriesAPI = {
 export const IssuesAPI = {
   list: () => request("GET", "/api/issues"),
   create: (payload) => request("POST", "/api/issues", payload),
+  update: (id, payload) => request("PUT", `/api/issues/${id}`, payload),
+  remove: (id) => request("DELETE", `/api/issues/${id}`),
 };
 
 export const TicketsAPI = {
