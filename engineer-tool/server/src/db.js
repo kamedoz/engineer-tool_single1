@@ -87,10 +87,18 @@ async function migrate(p) {
     CREATE TABLE IF NOT EXISTS ticket_steps (
       id TEXT PRIMARY KEY,
       ticket_id TEXT NOT NULL,
+      step_index INTEGER,
       step_text TEXT NOT NULL,
+      result TEXT,
+      checked_at TEXT,
       created_at TEXT NOT NULL
     );
   `);
+
+  // Backward-compatible migrations for older databases
+  await p.query(`ALTER TABLE ticket_steps ADD COLUMN IF NOT EXISTS step_index INTEGER;`);
+  await p.query(`ALTER TABLE ticket_steps ADD COLUMN IF NOT EXISTS result TEXT;`);
+  await p.query(`ALTER TABLE ticket_steps ADD COLUMN IF NOT EXISTS checked_at TEXT;`);
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS ticket_notes (

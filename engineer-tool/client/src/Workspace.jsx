@@ -293,6 +293,205 @@ function ChecklistRunner({ stepsText }) {
   );
 }
 
+// --- Ticket checklist runner with persistence (stores results per ticket step) ---
+function TicketChecklistRunner({ ticket, steps, onStepResult }) {
+  // steps: [{id, step_index, step_text, result}]
+  const resolvedAt = useMemo(() => {
+    const idx = steps.findIndex((s) => s.result === "pass");
+    return idx >= 0 ? idx : null;
+  }, [steps]);
+
+  const checkedCount = useMemo(() => steps.filter((s) => s.result === "pass" || s.result === "fail").length, [steps]);
+
+  return (
+    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontWeight: 800 }}>Чеклист</div>
+        <div style={{ opacity: 0.8, fontSize: 13 }}>
+          {resolvedAt !== null
+            ? `Решено на шаге ${resolvedAt + 1} ✅`
+            : `Проверено: ${checkedCount}/${steps.length}`}
+        </div>
+      </div>
+
+      {steps.length === 0 ? (
+        <div style={{ opacity: 0.85, marginTop: 8 }}>В шаблоне нет шагов.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+          {steps.map((s, idx) => {
+            const disabled = resolvedAt !== null && idx !== resolvedAt;
+            const r = s.result;
+            return (
+              <div
+                key={s.id}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 10,
+                  padding: 10,
+                  opacity: disabled ? 0.55 : 1,
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div style={{ opacity: 0.7, width: 22, textAlign: "right" }}>{idx + 1}.</div>
+                  <div style={{ flex: 1 }}>{s.step_text}</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button
+                      onClick={() => onStepResult(s, true)}
+                      disabled={disabled}
+                      title="Помогло"
+                    >
+                      ✅
+                    </button>
+                    <button
+                      onClick={() => onStepResult(s, false)}
+                      disabled={disabled}
+                      title="Не помогло"
+                    >
+                      ❌
+                    </button>
+                  </div>
+                </div>
+                {r === "pass" ? (
+                  <div style={{ marginTop: 8, opacity: 0.9 }}>Помогло — можно закрывать заявку.</div>
+                ) : null}
+                {r === "fail" ? (
+                  <div style={{ marginTop: 8, opacity: 0.85 }}>Не помогло — идём дальше.</div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TicketModal({ open, ticket, onClose, onUpdated, setError, downloadPdf }) {
+  const [steps, setSteps] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [noteDraft, setNoteDraft] = useState("");
+  const isClosed = (ticket?.status || "open") === "closed";
+
+  useEffect(() => {
+    (async () => {
+      if (!open || !ticket?.id) return;
+      try {
+        // Load existing steps
+        let st = await TicketsAPI.steps(ticket.id);
+        // If empty and we have template steps, bootstrap
+        if ((!st || st.length === 0) && ticket.issue_steps) {
+          const list = normalizeStepsText(ticket.issue_steps);
+          if (list.length) st = await TicketsAPI.bootstrapSteps(ticket.id, list);
+        }
+        setSteps(st || []);
+        const ns = await TicketsAPI.notes(ticket.id);
+        setNotes(ns || []);
+      } catch (e) {
+        setError?.(e?.message || "HTTP error");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, ticket?.id]);
+
+  async function onStepResult(step, ok) {
+    if (!ticket?.id) return;
+    try {
+      const updated = await TicketsAPI.updateStep(ticket.id, step.id, ok);
+      setSteps((prev) => prev.map((s) => (s.id === step.id ? updated : s)));
+    } catch (e) {
+      setError?.(e?.message || "HTTP error");
+    }
+  }
+
+  async function addNote() {
+    const txt = (noteDraft || "").trim();
+    if (!txt || !ticket?.id) return;
+    try {
+      await TicketsAPI.addNote(ticket.id, txt);
+      setNoteDraft("");
+      const ns = await TicketsAPI.notes(ticket.id);
+      setNotes(ns || []);
+    } catch (e) {
+      setError?.(e?.message || "HTTP error");
+    }
+  }
+
+  async function closeTicket() {
+    if (!ticket?.id) return;
+    try {
+      await TicketsAPI.setStatus(ticket.id, "closed");
+      onUpdated?.();
+    } catch (e) {
+      setError?.(e?.message || "HTTP error");
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      title={ticket ? `Заявка: ${ticket.site || ""}` : "Заявка"}
+      onClose={onClose}
+    >
+      {ticket ? (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: 4, opacity: 0.9, fontSize: 13 }}>
+            <div><b>ID:</b> {ticket.id}</div>
+            <div>
+              <b>Status:</b>{" "}
+              <span style={{ color: (ticket.status || "open") === "open" ? "#4cd964" : "#ff6b6b" }}>
+                {ticket.status || "open"}
+              </span>
+            </div>
+            {ticket.visit_date ? <div><b>Date:</b> {ticket.visit_date}</div> : null}
+            {ticket.category_name ? <div><b>Category:</b> {ticket.category_name}</div> : null}
+            {ticket.issue_title ? <div><b>Issue:</b> {ticket.issue_title}</div> : null}
+            {ticket.engineer_email ? <div><b>Assignee:</b> {ticket.engineer_email}</div> : null}
+          </div>
+
+          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Описание</div>
+            <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>{ticket.description || ""}</div>
+          </div>
+
+          <TicketChecklistRunner ticket={ticket} steps={steps} onStepResult={onStepResult} />
+
+          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Заметки</div>
+            {notes.length === 0 ? (
+              <div style={{ opacity: 0.85 }}>Пока нет заметок.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 6 }}>
+                {notes.map((n) => (
+                  <div key={n.id} style={{ opacity: 0.95 }}>
+                    • {n.note_text}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                placeholder="Добавь заметку…"
+                style={{ flex: 1 }}
+              />
+              <button onClick={addNote}>Добавить</button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button onClick={() => downloadPdf(ticket)}>Скачать PDF</button>
+            <button onClick={closeTicket} disabled={isClosed}>
+              Закрыть заявку
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
 export default function Workspace({ me, onLogout }) {
   const [tab, setTab] = useState("tickets"); // tickets | kb | chat
 
@@ -317,6 +516,7 @@ export default function Workspace({ me, onLogout }) {
 
   // tickets
   const [tickets, setTickets] = useState([]);
+  const [activeTicket, setActiveTicket] = useState(null);
   const [ticketForm, setTicketForm] = useState({
     site: "Town House 5 / V",
     visit_date: fmtISODateInput(new Date()),
@@ -560,6 +760,22 @@ export default function Workspace({ me, onLogout }) {
     }
   }
 
+  async function downloadTicketPdf(ticket) {
+    try {
+      const blob = await TicketsAPI.downloadReport(ticket.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ticket_${ticket.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      setError(e?.message || "PDF download error");
+    }
+  }
+
   const filteredIssuesForCategory = useMemo(() => {
     const cid = ticketForm.category_id || "";
     if (!cid) return issues;
@@ -723,14 +939,25 @@ export default function Workspace({ me, onLogout }) {
                     {tickets.map((t) => (
                       <div
                         key={t.id}
+                        onClick={() => setActiveTicket(t)}
                         style={{
+                          cursor: "pointer",
                           border: "1px solid rgba(255,255,255,0.08)",
                           borderRadius: 10,
                           padding: 10,
                         }}
                       >
-                        <div style={{ fontWeight: 700 }}>
-                          {t.site} • {t.status || "open"}
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                          <div style={{ fontWeight: 700 }}>{t.site}</div>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              color: (t.status || "open") === "open" ? "#3ee37a" : "#ff4d4d",
+                              textTransform: "lowercase",
+                            }}
+                          >
+                            {t.status || "open"}
+                          </div>
                         </div>
                         <div style={{ opacity: 0.85 }}>
                           {t.category_name ? `Category: ${t.category_name}` : null}
@@ -740,6 +967,19 @@ export default function Workspace({ me, onLogout }) {
                           {(t.description || "").slice(0, 160)}
                           {(t.description || "").length > 160 ? "…" : ""}
                         </div>
+
+                        {(t.status || "open") === "closed" ? (
+                          <div style={{ marginTop: 10 }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadTicketPdf(t);
+                              }}
+                            >
+                              PDF
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -1144,6 +1384,18 @@ export default function Workspace({ me, onLogout }) {
           </div>
         ) : null}
       </Modal>
+
+      <TicketModal
+        open={!!activeTicket}
+        ticket={activeTicket}
+        onClose={() => setActiveTicket(null)}
+        onUpdated={async () => {
+          await refreshTickets();
+          setActiveTicket((p) => (p ? { ...p, status: "closed" } : p));
+        }}
+        setError={setError}
+        downloadPdf={() => activeTicket ? downloadTicketPdf(activeTicket) : null}
+      />
     </div>
   );
 }

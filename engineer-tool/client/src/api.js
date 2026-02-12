@@ -76,10 +76,26 @@ export const IssuesAPI = {
 export const TicketsAPI = {
   list: () => request("GET", "/api/tickets"),
   create: (payload) => request("POST", "/api/tickets", payload),
-  get: (id) => request("GET", `/api/tickets/${id}`),
-  addStep: (id, payload) => request("POST", `/api/tickets/${id}/steps`, payload),
-  close: (id, payload) => request("POST", `/api/tickets/${id}/close`, payload),
-  pdf: (id) => `${API_BASE}/api/tickets/${id}/pdf`,
+  steps: (id) => request("GET", `/api/tickets/${id}/steps`),
+  bootstrapSteps: (id, steps) => request("POST", `/api/tickets/${id}/bootstrap-steps`, { steps }),
+  updateStep: (ticketId, stepId, result) =>
+    request("PUT", `/api/tickets/${ticketId}/steps/${stepId}`, { result }),
+  notes: (id) => request("GET", `/api/tickets/${id}/notes`),
+  addNote: (id, note_text) => request("POST", `/api/tickets/${id}/notes`, { note_text }),
+  setStatus: (id, status) => request("PUT", `/api/tickets/${id}/status`, { status }),
+  // Download report (authenticated) as Blob
+  downloadReport: async (id) => {
+    const res = await fetch(`${API_BASE}/api/tickets/${id}/report.pdf`, {
+      method: "GET",
+      headers: { ...authHeader() },
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.blob();
+  },
 };
 
 export const ChatAPI = {
