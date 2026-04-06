@@ -250,3 +250,22 @@ button:disabled{opacity:.55; cursor:not-allowed}
 .section{padding:18px}
 .h1{font-size:20px; font-weight:700; margin:0 0 8px}
 .h2{font-size:14px; font-weight:600; margin:0 0 6px; color:var(--muted)}
+
+/* === Fix mobile horizontal overflow === */
+@media (max-width: 768px) {
+  .ws-content * {
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Карточки не должны выходить за экран */
+  .ws-content > div {
+    overflow-x: hidden;
+  }
+
+  /* Заголовок в топбаре не обрезает текст вправо */
+  .ws-topbar {
+    overflow: hidden;
+  }
+}
