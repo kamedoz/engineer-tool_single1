@@ -46,6 +46,7 @@ export default function AuthScreen({ onLogin, onRegister, error }) {
         minHeight: "100vh",
         display: "grid",
         placeItems: "center",
+        padding: "16px",
         background: "radial-gradient(1200px 700px at 30% 30%, #0f172a, #020617)",
         color: "#e5e7eb",
         fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
@@ -54,7 +55,7 @@ export default function AuthScreen({ onLogin, onRegister, error }) {
       <form
         onSubmit={submit}
         style={{
-          width: 420,
+          width: "min(420px, 100%)",
           background: "rgba(2,6,23,0.65)",
           border: "1px solid rgba(148,163,184,0.15)",
           borderRadius: 16,
@@ -174,4 +175,3 @@ const buttonStyle = {
   cursor: "pointer",
   fontWeight: 600,
 };
-
