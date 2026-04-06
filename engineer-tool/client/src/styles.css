@@ -177,10 +177,13 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   min-width: 0;
 }
 
-/* Поле даты — убираем минимальную ширину браузера */
+/* Поле даты — убираем минимальную ширину браузера (включая iOS Safari) */
 input[type="date"] {
+  display: block;
   min-width: 0;
   width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .grid-chat {
