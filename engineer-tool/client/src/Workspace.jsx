@@ -8,7 +8,6 @@ import {
 } from "./api.js";
 
 function fmtISODateInput(value) {
-  // value: Date or ISO string
   const d = value instanceof Date ? value : new Date(value);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -293,15 +292,16 @@ function ChecklistRunner({ stepsText }) {
   );
 }
 
-// --- Ticket checklist runner with persistence (stores results per ticket step) ---
 function TicketChecklistRunner({ ticket, steps, onStepResult }) {
-  // steps: [{id, step_index, step_text, result}]
   const resolvedAt = useMemo(() => {
     const idx = steps.findIndex((s) => s.result === "pass");
     return idx >= 0 ? idx : null;
   }, [steps]);
 
-  const checkedCount = useMemo(() => steps.filter((s) => s.result === "pass" || s.result === "fail").length, [steps]);
+  const checkedCount = useMemo(
+    () => steps.filter((s) => s.result === "pass" || s.result === "fail").length,
+    [steps]
+  );
 
   return (
     <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
@@ -335,18 +335,10 @@ function TicketChecklistRunner({ ticket, steps, onStepResult }) {
                   <div style={{ opacity: 0.7, width: 22, textAlign: "right" }}>{idx + 1}.</div>
                   <div style={{ flex: 1 }}>{s.step_text}</div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <button
-                      onClick={() => onStepResult(s, true)}
-                      disabled={disabled}
-                      title="Помогло"
-                    >
+                    <button onClick={() => onStepResult(s, true)} disabled={disabled} title="Помогло">
                       ✅
                     </button>
-                    <button
-                      onClick={() => onStepResult(s, false)}
-                      disabled={disabled}
-                      title="Не помогло"
-                    >
+                    <button onClick={() => onStepResult(s, false)} disabled={disabled} title="Не помогло">
                       ❌
                     </button>
                   </div>
@@ -376,9 +368,7 @@ function TicketModal({ open, ticket, onClose, onUpdated, setError, downloadPdf }
     (async () => {
       if (!open || !ticket?.id) return;
       try {
-        // Load existing steps
         let st = await TicketsAPI.steps(ticket.id);
-        // If empty and we have template steps, bootstrap
         if ((!st || st.length === 0) && ticket.issue_steps) {
           const list = normalizeStepsText(ticket.issue_steps);
           if (list.length) st = await TicketsAPI.bootstrapSteps(ticket.id, list);
@@ -493,15 +483,11 @@ function TicketModal({ open, ticket, onClose, onUpdated, setError, downloadPdf }
 }
 
 export default function Workspace({ me, onLogout }) {
-  const [tab, setTab] = useState("tickets"); // tickets | kb | chat
+  const [tab, setTab] = useState("tickets");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // global
   const [error, setError] = useState("");
-
-  // users
   const [users, setUsers] = useState([]);
-
-  // categories/issues
   const [categories, setCategories] = useState([]);
   const [issues, setIssues] = useState([]);
   const [activeIssue, setActiveIssue] = useState(null);
@@ -517,10 +503,9 @@ export default function Workspace({ me, onLogout }) {
   const [issueSearch, setIssueSearch] = useState("");
   const [issueCategoryFilter, setIssueCategoryFilter] = useState("");
 
-  // tickets
   const [tickets, setTickets] = useState([]);
   const [activeTicket, setActiveTicket] = useState(null);
-  const [ticketFilter, setTicketFilter] = useState("open"); // open | closed
+  const [ticketFilter, setTicketFilter] = useState("open");
   const [ticketSearchOpen, setTicketSearchOpen] = useState("");
   const [ticketSearchClosed, setTicketSearchClosed] = useState("");
   const [ticketForm, setTicketForm] = useState({
@@ -532,7 +517,6 @@ export default function Workspace({ me, onLogout }) {
     description: "",
   });
 
-  // KB create forms
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newIssue, setNewIssue] = useState({
     category_id: "",
@@ -542,7 +526,6 @@ export default function Workspace({ me, onLogout }) {
     solution: "",
   });
 
-  // chat (минимально)
   const [threads, setThreads] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [messages, setMessages] = useState([]);
@@ -554,6 +537,12 @@ export default function Workspace({ me, onLogout }) {
     const name = `${u.first_name || ""} ${u.last_name || ""}`.trim();
     return `• ${name || u.email} • ${u.role || ""}`;
   }, [me]);
+
+  // Закрываем sidebar при смене таба на мобильном
+  function switchTab(t) {
+    setTab(t);
+    setSidebarOpen(false);
+  }
 
   async function refreshAll() {
     setError("");
@@ -608,19 +597,15 @@ export default function Workspace({ me, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // -------- KB handlers --------
   async function createCategory() {
     setError("");
     const name = newCategoryName.trim();
-    if (!name) {
-      setError("Category name is required");
-      return;
-    }
+    if (!name) { setError("Category name is required"); return; }
     try {
       await CategoriesAPI.create(name);
       setNewCategoryName("");
       await refreshAll();
-      setTab("kb");
+      switchTab("kb");
     } catch (e) {
       setError(e?.message || "HTTP error");
     }
@@ -628,14 +613,8 @@ export default function Workspace({ me, onLogout }) {
 
   async function createIssue() {
     setError("");
-    if (!newIssue.category_id) {
-      setError("category_id is required");
-      return;
-    }
-    if (!newIssue.title.trim()) {
-      setError("Issue title is required");
-      return;
-    }
+    if (!newIssue.category_id) { setError("category_id is required"); return; }
+    if (!newIssue.title.trim()) { setError("Issue title is required"); return; }
     try {
       await IssuesAPI.create({
         category_id: newIssue.category_id,
@@ -644,15 +623,9 @@ export default function Workspace({ me, onLogout }) {
         steps: newIssue.steps?.trim() || "",
         solution: newIssue.solution?.trim() || "",
       });
-      setNewIssue({
-        category_id: newIssue.category_id,
-        title: "",
-        description: "",
-        steps: "",
-        solution: "",
-      });
+      setNewIssue({ category_id: newIssue.category_id, title: "", description: "", steps: "", solution: "" });
       await refreshAll();
-      setTab("kb");
+      switchTab("kb");
     } catch (e) {
       setError(e?.message || "HTTP error");
     }
@@ -673,15 +646,8 @@ export default function Workspace({ me, onLogout }) {
   async function saveIssueEdits() {
     if (!activeIssue?.id) return;
     setError("");
-    if (!editIssue.category_id) {
-      setError("category_id is required");
-      return;
-    }
-    if (!editIssue.title.trim()) {
-      setError("title is required");
-      return;
-    }
-
+    if (!editIssue.category_id) { setError("category_id is required"); return; }
+    if (!editIssue.title.trim()) { setError("title is required"); return; }
     try {
       await IssuesAPI.update(activeIssue.id, {
         category_id: editIssue.category_id,
@@ -691,12 +657,10 @@ export default function Workspace({ me, onLogout }) {
         solution: editIssue.solution || "",
       });
       await refreshAll();
-      const updated = (issues || []).find((x) => x.id === activeIssue.id);
-      // refreshAll обновит issues, но state issues обновится async; поэтому просто закрываем/открываем заново
       setIsEditingIssue(false);
       setActiveIssue(null);
-      // re-open after a tick
       setTimeout(() => {
+        const updated = (issues || []).find((x) => x.id === activeIssue.id);
         if (updated) openIssue(updated);
       }, 0);
     } catch (e) {
@@ -719,19 +683,10 @@ export default function Workspace({ me, onLogout }) {
     }
   }
 
-  // -------- Tickets handlers --------
   async function createTicket() {
     setError("");
-    // на твоём сервере category_id сейчас обязательный — поэтому заставляем выбрать
-    if (!ticketForm.category_id) {
-      setError("category_id is required");
-      return;
-    }
-    if (!ticketForm.description.trim()) {
-      setError("Описание проблемы обязательно");
-      return;
-    }
-
+    if (!ticketForm.category_id) { setError("category_id is required"); return; }
+    if (!ticketForm.description.trim()) { setError("Описание проблемы обязательно"); return; }
     try {
       await TicketsAPI.create({
         site: ticketForm.site,
@@ -741,21 +696,18 @@ export default function Workspace({ me, onLogout }) {
         issue_id: ticketForm.issue_id || null,
         description: ticketForm.description.trim(),
       });
-
       setTicketForm((p) => ({ ...p, description: "" }));
       await refreshTickets();
-      setTab("tickets");
+      switchTab("tickets");
     } catch (e) {
       setError(e?.message || "HTTP error");
     }
   }
 
-  // -------- Chat handlers --------
   async function sendMessage() {
     setError("");
     const text = chatText.trim();
     if (!selectedUserId || !text) return;
-
     try {
       await ChatAPI.send(selectedUserId, text);
       setChatText("");
@@ -822,20 +774,45 @@ export default function Workspace({ me, onLogout }) {
     });
   }, [issues, issueSearch, issueCategoryFilter]);
 
-  return (
-    <div style={{ padding: 16 }}>
-      {/* top bar */}
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ minWidth: 260 }}>
-          <div style={{ fontWeight: 700 }}>Engineer Tool</div>
-          <div style={{ opacity: 0.85 }}>{meLabel}</div>
+  // Название текущей вкладки для топбара
+  const tabLabel = tab === "tickets" ? "Заявки" : tab === "kb" ? "База проблем" : "Чат";
 
-          <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-            <button onClick={() => setTab("tickets")}>Заявки</button>
-            <button onClick={() => setTab("kb")}>Решения / База проблем</button>
+  return (
+    <div className="ws-root">
+
+      {/* Мобильный топбар — виден только на mobile через CSS */}
+      <div className="ws-topbar">
+        <button
+          className="ws-hamburger"
+          onClick={() => setSidebarOpen((v) => !v)}
+          aria-label="Открыть меню"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <div style={{ fontWeight: 700, flex: 1 }}>Engineer Tool</div>
+        <div style={{ opacity: 0.75, fontSize: 13 }}>{tabLabel}</div>
+      </div>
+
+      {/* Overlay для закрытия sidebar по клику вне */}
+      <div
+        className={`ws-overlay${sidebarOpen ? " open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      <div className="ws-layout">
+        {/* Sidebar */}
+        <div className={`ws-sidebar${sidebarOpen ? " open" : ""}`}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>Engineer Tool</div>
+          <div style={{ opacity: 0.85, fontSize: 13, marginBottom: 16 }}>{meLabel}</div>
+
+          <div style={{ display: "grid", gap: 8 }}>
+            <button onClick={() => switchTab("tickets")}>Заявки</button>
+            <button onClick={() => switchTab("kb")}>Решения / База проблем</button>
             <button
               onClick={() => {
-                setTab("chat");
+                switchTab("chat");
                 refreshChatThreads();
               }}
             >
@@ -845,12 +822,12 @@ export default function Workspace({ me, onLogout }) {
           </div>
 
           {error ? (
-            <div style={{ marginTop: 10, color: "#ff6b6b" }}>{error}</div>
+            <div style={{ marginTop: 10, color: "#ff6b6b", fontSize: 13 }}>{error}</div>
           ) : null}
         </div>
 
-        {/* content */}
-        <div style={{ flex: 1 }}>
+        {/* Main content */}
+        <div className="ws-content">
           {tab === "tickets" ? (
             <div style={{ display: "grid", gap: 12 }}>
               <h2 style={{ margin: 0 }}>Заявки</h2>
@@ -862,40 +839,23 @@ export default function Workspace({ me, onLogout }) {
                   padding: 12,
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                  Создать заявку
-                </div>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>Создать заявку</div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 10,
-                    gridTemplateColumns: "1fr 220px",
-                  }}
-                >
+                <div className="grid-ticket-form">
                   <input
                     value={ticketForm.site}
-                    onChange={(e) =>
-                      setTicketForm((p) => ({ ...p, site: e.target.value }))
-                    }
+                    onChange={(e) => setTicketForm((p) => ({ ...p, site: e.target.value }))}
                     placeholder="Site"
                   />
                   <input
                     type="date"
                     value={ticketForm.visit_date}
-                    onChange={(e) =>
-                      setTicketForm((p) => ({ ...p, visit_date: e.target.value }))
-                    }
+                    onChange={(e) => setTicketForm((p) => ({ ...p, visit_date: e.target.value }))}
                   />
 
                   <select
                     value={ticketForm.engineer_user_id}
-                    onChange={(e) =>
-                      setTicketForm((p) => ({
-                        ...p,
-                        engineer_user_id: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setTicketForm((p) => ({ ...p, engineer_user_id: e.target.value }))}
                   >
                     <option value="">Assignee (optional)</option>
                     {users.map((u) => (
@@ -910,32 +870,22 @@ export default function Workspace({ me, onLogout }) {
                   <select
                     value={ticketForm.category_id}
                     onChange={(e) =>
-                      setTicketForm((p) => ({
-                        ...p,
-                        category_id: e.target.value,
-                        issue_id: "",
-                      }))
+                      setTicketForm((p) => ({ ...p, category_id: e.target.value, issue_id: "" }))
                     }
                   >
                     <option value="">Category (required)</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
 
                   <select
                     value={ticketForm.issue_id}
-                    onChange={(e) =>
-                      setTicketForm((p) => ({ ...p, issue_id: e.target.value }))
-                    }
+                    onChange={(e) => setTicketForm((p) => ({ ...p, issue_id: e.target.value }))}
                   >
                     <option value="">Issue template (optional)</option>
                     {filteredIssuesForCategory.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.title}
-                      </option>
+                      <option key={i.id} value={i.id}>{i.title}</option>
                     ))}
                   </select>
 
@@ -945,9 +895,7 @@ export default function Workspace({ me, onLogout }) {
                 <textarea
                   style={{ marginTop: 10, width: "100%", minHeight: 110 }}
                   value={ticketForm.description}
-                  onChange={(e) =>
-                    setTicketForm((p) => ({ ...p, description: e.target.value }))
-                  }
+                  onChange={(e) => setTicketForm((p) => ({ ...p, description: e.target.value }))}
                   placeholder="Опиши проблему..."
                 />
               </div>
@@ -959,51 +907,34 @@ export default function Workspace({ me, onLogout }) {
                   padding: 12,
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontWeight: 700 }}>Список</div>
                   <button onClick={refreshTickets}>Обновить</button>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <button
                     onClick={() => setTicketFilter("open")}
-                    style={{
-                      fontWeight: 800,
-                      opacity: ticketFilter === "open" ? 1 : 0.55,
-                      border: "1px solid rgba(255,255,255,0.14)",
-                    }}
+                    style={{ fontWeight: 800, opacity: ticketFilter === "open" ? 1 : 0.55, border: "1px solid rgba(255,255,255,0.14)" }}
                   >
                     Open
                   </button>
                   <button
                     onClick={() => setTicketFilter("closed")}
-                    style={{
-                      fontWeight: 800,
-                      opacity: ticketFilter === "closed" ? 1 : 0.55,
-                      border: "1px solid rgba(255,255,255,0.14)",
-                    }}
+                    style={{ fontWeight: 800, opacity: ticketFilter === "closed" ? 1 : 0.55, border: "1px solid rgba(255,255,255,0.14)" }}
                   >
                     Closed
                   </button>
-
                   <input
                     value={ticketSearch}
                     onChange={(e) => setTicketSearch(e.target.value)}
                     placeholder={ticketFilter === "open" ? "Поиск по открытым..." : "Поиск по закрытым..."}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: 120 }}
                   />
                 </div>
 
                 {visibleTickets.length === 0 ? (
-                  <div style={{ opacity: 0.85, marginTop: 8 }}>
-                    Пока нет заявок.
-                  </div>
+                  <div style={{ opacity: 0.85, marginTop: 8 }}>Пока нет заявок.</div>
                 ) : (
                   <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
                     {visibleTickets.map((t) => (
@@ -1017,7 +948,7 @@ export default function Workspace({ me, onLogout }) {
                           padding: 10,
                         }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                           <div style={{ fontWeight: 700 }}>{t.site}</div>
                           <div
                             style={{
@@ -1037,7 +968,6 @@ export default function Workspace({ me, onLogout }) {
                           {(t.description || "").slice(0, 160)}
                           {(t.description || "").length > 160 ? "…" : ""}
                         </div>
-
                         {(t.status || "open") === "closed" ? (
                           <div style={{ marginTop: 10 }}>
                             <button
@@ -1063,15 +993,9 @@ export default function Workspace({ me, onLogout }) {
               <h2 style={{ margin: 0 }}>База проблем</h2>
               <div style={{ opacity: 0.85 }}>Категории и шаблоны решений</div>
 
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+              <div className="grid-2col">
                 {/* categories */}
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    padding: 12,
-                  }}
-                >
+                <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12 }}>
                   <div style={{ fontWeight: 700, marginBottom: 8 }}>Категории</div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
@@ -1082,7 +1006,6 @@ export default function Workspace({ me, onLogout }) {
                     />
                     <button onClick={createCategory}>Добавить</button>
                   </div>
-
                   <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                     {categories.map((c) => (
                       <div
@@ -1107,16 +1030,8 @@ export default function Workspace({ me, onLogout }) {
                 </div>
 
                 {/* issues */}
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    padding: 12,
-                  }}
-                >
-                  <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                    Шаблоны проблем / решений
-                  </div>
+                <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>Шаблоны проблем / решений</div>
 
                   <select
                     value={newIssue.category_id}
@@ -1125,9 +1040,7 @@ export default function Workspace({ me, onLogout }) {
                   >
                     <option value="">Выбери категорию (required)</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
 
@@ -1163,50 +1076,33 @@ export default function Workspace({ me, onLogout }) {
                 </div>
               </div>
 
-              <div
-                style={{
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 12,
-                  padding: 12,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
+              <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontWeight: 700 }}>Список шаблонов</div>
                   <button onClick={refreshAll}>Обновить</button>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <select
                     value={issueCategoryFilter}
                     onChange={(e) => setIssueCategoryFilter(e.target.value)}
-                    style={{ minWidth: 220 }}
+                    style={{ minWidth: 160 }}
                   >
                     <option value="">Все категории</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </option>
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
                     ))}
                   </select>
-
                   <input
                     value={issueSearch}
                     onChange={(e) => setIssueSearch(e.target.value)}
                     placeholder="Поиск по шаблонам..."
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: 120 }}
                   />
                 </div>
 
                 {visibleIssues.length === 0 ? (
-                  <div style={{ opacity: 0.85, marginTop: 8 }}>
-                    Пока нет шаблонов.
-                  </div>
+                  <div style={{ opacity: 0.85, marginTop: 8 }}>Пока нет шаблонов.</div>
                 ) : (
                   <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
                     {visibleIssues.map((i) => (
@@ -1222,9 +1118,7 @@ export default function Workspace({ me, onLogout }) {
                       >
                         <div style={{ fontWeight: 700 }}>{i.title}</div>
                         <div style={{ opacity: 0.85, fontSize: 13 }}>
-                          {i.category_name
-                            ? `Category: ${i.category_name}`
-                            : `category_id: ${i.category_id}`}
+                          {i.category_name ? `Category: ${i.category_name}` : `category_id: ${i.category_id}`}
                         </div>
                         {i.description ? (
                           <div style={{ marginTop: 6, opacity: 0.9 }}>
@@ -1244,25 +1138,12 @@ export default function Workspace({ me, onLogout }) {
             <div style={{ display: "grid", gap: 12 }}>
               <h2 style={{ margin: 0 }}>Чат</h2>
 
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "320px 1fr" }}>
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
+              <div className="grid-chat">
+                <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontWeight: 700 }}>Пользователи</div>
                     <button onClick={refreshChatThreads}>Обновить</button>
                   </div>
-
                   <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
                     {threads.map((t) => (
                       <button
@@ -1297,17 +1178,10 @@ export default function Workspace({ me, onLogout }) {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    padding: 12,
-                  }}
-                >
+                <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12 }}>
                   <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                    {selectedUserId ? "Сообщения" : "Выбери пользователя слева"}
+                    {selectedUserId ? "Сообщения" : "Выбери пользователя выше"}
                   </div>
-
                   <div style={{ minHeight: 260, display: "grid", gap: 6 }}>
                     {messages.map((m) => (
                       <div
@@ -1317,8 +1191,7 @@ export default function Workspace({ me, onLogout }) {
                           borderRadius: 10,
                           border: "1px solid rgba(255,255,255,0.08)",
                           maxWidth: "85%",
-                          justifySelf:
-                            m.from_user_id === me?.user?.id ? "end" : "start",
+                          justifySelf: m.from_user_id === me?.user?.id ? "end" : "start",
                         }}
                       >
                         <div style={{ opacity: 0.85, fontSize: 12 }}>
@@ -1328,7 +1201,6 @@ export default function Workspace({ me, onLogout }) {
                       </div>
                     ))}
                   </div>
-
                   <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
                     <input
                       value={chatText}
@@ -1337,10 +1209,7 @@ export default function Workspace({ me, onLogout }) {
                       style={{ flex: 1 }}
                       disabled={!selectedUserId}
                     />
-                    <button
-                      onClick={sendMessage}
-                      disabled={!selectedUserId || !chatText.trim()}
-                    >
+                    <button onClick={sendMessage} disabled={!selectedUserId || !chatText.trim()}>
                       Send
                     </button>
                   </div>
@@ -1351,7 +1220,7 @@ export default function Workspace({ me, onLogout }) {
         </div>
       </div>
 
-      {/* Issue details / editor modal */}
+      {/* Issue modal */}
       <Modal
         open={!!activeIssue}
         title={activeIssue ? `Шаблон: ${activeIssue.title}` : "Шаблон"}
@@ -1362,29 +1231,17 @@ export default function Workspace({ me, onLogout }) {
       >
         {activeIssue ? (
           <div style={{ display: "grid", gap: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <div style={{ opacity: 0.85, fontSize: 13 }}>
                 {activeIssue.category_name
                   ? `Категория: ${activeIssue.category_name}`
                   : `category_id: ${activeIssue.category_id}`}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setIsEditingIssue((v) => !v)}
-                  title="Редактировать"
-                >
+                <button onClick={() => setIsEditingIssue((v) => !v)}>
                   {isEditingIssue ? "Отмена" : "Редактировать"}
                 </button>
-                <button onClick={deleteIssue} title="Удалить">
-                  Удалить
-                </button>
+                <button onClick={deleteIssue}>Удалить</button>
               </div>
             </div>
 
@@ -1392,83 +1249,50 @@ export default function Workspace({ me, onLogout }) {
               <div style={{ display: "grid", gap: 10 }}>
                 <select
                   value={editIssue.category_id}
-                  onChange={(e) =>
-                    setEditIssue((p) => ({ ...p, category_id: e.target.value }))
-                  }
+                  onChange={(e) => setEditIssue((p) => ({ ...p, category_id: e.target.value }))}
                   style={{ width: "100%" }}
                 >
                   <option value="">Выбери категорию (required)</option>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
-
                 <input
                   value={editIssue.title}
                   onChange={(e) => setEditIssue((p) => ({ ...p, title: e.target.value }))}
                   placeholder="Название"
                 />
-
                 <textarea
                   value={editIssue.description}
-                  onChange={(e) =>
-                    setEditIssue((p) => ({ ...p, description: e.target.value }))
-                  }
+                  onChange={(e) => setEditIssue((p) => ({ ...p, description: e.target.value }))}
                   placeholder="Описание / симптомы"
                   style={{ width: "100%", minHeight: 90 }}
                 />
-
                 <ChecklistBuilder
                   value={editIssue.steps}
                   onChange={(next) => setEditIssue((p) => ({ ...p, steps: next }))}
                 />
-
                 <textarea
                   value={editIssue.solution}
-                  onChange={(e) =>
-                    setEditIssue((p) => ({ ...p, solution: e.target.value }))
-                  }
+                  onChange={(e) => setEditIssue((p) => ({ ...p, solution: e.target.value }))}
                   placeholder="Решение"
                   style={{ width: "100%", minHeight: 90 }}
                 />
-
                 <button onClick={saveIssueEdits}>Сохранить</button>
               </div>
             ) : (
               <>
                 {activeIssue.description ? (
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 12,
-                      padding: 10,
-                    }}
-                  >
-                    <div style={{ fontWeight: 800, marginBottom: 8 }}>
-                      Описание / симптомы
-                    </div>
-                    <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>
-                      {activeIssue.description}
-                    </div>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 8 }}>Описание / симптомы</div>
+                    <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>{activeIssue.description}</div>
                   </div>
                 ) : null}
-
                 <ChecklistRunner stepsText={activeIssue.steps} />
-
                 {activeIssue.solution ? (
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 12,
-                      padding: 10,
-                    }}
-                  >
+                  <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
                     <div style={{ fontWeight: 800, marginBottom: 8 }}>Решение</div>
-                    <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>
-                      {activeIssue.solution}
-                    </div>
+                    <div style={{ whiteSpace: "pre-wrap", opacity: 0.95 }}>{activeIssue.solution}</div>
                   </div>
                 ) : null}
               </>

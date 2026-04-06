@@ -10,10 +10,11 @@
   --danger:#b84a5a;
   --shadow:0 20px 60px rgba(0,0,0,.45);
   --radius:18px;
+  --sidebar-w: 260px;
 }
 
 *{box-sizing:border-box}
-html,body{height:100%}
+html,body{height:100%; overflow-x:hidden;}
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
@@ -28,7 +29,6 @@ a{color:inherit}
 .muted{color:var(--muted)}
 .error{color:#ff6b7a; font-size:12px}
 
-/* базовая “анти-белая” тема для форм */
 input, select, textarea, button{
   font:inherit;
 }
@@ -87,7 +87,6 @@ button:disabled{opacity:.55; cursor:not-allowed}
 }
 .btn-danger:hover{background:rgba(184,74,90,.24)}
 
-/* простые “карточки” */
 .card{
   background:var(--card);
   border:1px solid var(--border);
@@ -95,10 +94,159 @@ button:disabled{opacity:.55; cursor:not-allowed}
   box-shadow:var(--shadow);
 }
 
-/* если у тебя в JSX есть классы — пусть красиво выглядят */
-.sidebar{padding:18px}
+/* === Workspace layout === */
+.ws-root {
+  padding: 16px;
+}
+
+.ws-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.ws-sidebar {
+  min-width: var(--sidebar-w);
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+}
+
+.ws-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-topbar {
+  display: none;
+}
+
+.ws-hamburger {
+  display: none;
+}
+
+.ws-overlay {
+  display: none;
+}
+
+/* === Responsive grids === */
+.grid-2col {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid-ticket-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 220px;
+}
+
+.grid-chat {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 320px 1fr;
+}
+
+/* === Mobile === */
+@media (max-width: 768px) {
+  .ws-root {
+    padding: 0;
+  }
+
+  .ws-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(6,8,18,0.92);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    backdrop-filter: blur(14px);
+  }
+
+  .ws-hamburger {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .ws-hamburger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--text);
+    border-radius: 2px;
+    transition: .2s ease;
+  }
+
+  .ws-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0);
+    z-index: 98;
+    pointer-events: none;
+    transition: background .25s ease;
+  }
+  .ws-overlay.open {
+    background: rgba(0,0,0,0.55);
+    pointer-events: auto;
+  }
+
+  .ws-layout {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .ws-sidebar {
+    position: fixed;
+    top: 0;
+    left: calc(-1 * var(--sidebar-w) - 24px);
+    height: 100%;
+    width: var(--sidebar-w);
+    min-width: 0;
+    z-index: 99;
+    background: rgba(8, 12, 28, 0.99);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    overflow-y: auto;
+    transition: left .28s cubic-bezier(.4,0,.2,1);
+  }
+
+  .ws-sidebar.open {
+    left: 0;
+    box-shadow: 8px 0 40px rgba(0,0,0,0.6);
+  }
+
+  .ws-content {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .grid-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-ticket-form {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-chat {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === Legacy === */
 .navbtn{width:100%; text-align:left; padding:12px 14px; border-radius:14px}
 .section{padding:18px}
 .h1{font-size:20px; font-weight:700; margin:0 0 8px}
 .h2{font-size:14px; font-weight:600; margin:0 0 6px; color:var(--muted)}
-
