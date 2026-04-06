@@ -170,6 +170,19 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   grid-template-columns: 1fr 220px;
 }
 
+/* Все дочерние элементы грида не выходят за границы колонки */
+.grid-ticket-form > *,
+.grid-2col > *,
+.grid-chat > * {
+  min-width: 0;
+}
+
+/* Поле даты — убираем минимальную ширину браузера */
+input[type="date"] {
+  min-width: 0;
+  width: 100%;
+}
+
 .grid-chat {
   display: grid;
   gap: 12px;
