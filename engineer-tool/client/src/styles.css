@@ -1,103 +1,136 @@
-:root{
-  --bg0:#060812;
-  --bg1:#0a0f1f;
-  --card:rgba(255,255,255,.06);
-  --card2:rgba(255,255,255,.08);
-  --border:rgba(255,255,255,.12);
-  --text:#eaf0ff;
-  --muted:rgba(234,240,255,.7);
-  --accent:#4f7cff;
-  --danger:#b84a5a;
-  --shadow:0 20px 60px rgba(0,0,0,.45);
-  --radius:18px;
+/* ============================================
+   ENGINEER TOOL — styles.css
+   ============================================ */
+
+/* === Тёмная тема (по умолчанию) === */
+:root {
+  --bg0: #060812;
+  --bg1: #0a0f1f;
+  --bg-body: radial-gradient(900px 700px at 75% 20%, rgba(115,62,255,.22), transparent 55%),
+             radial-gradient(800px 600px at 15% 10%, rgba(40,120,255,.16), transparent 55%),
+             linear-gradient(180deg, #060812, #0a0f1f);
+  --card: rgba(255,255,255,.06);
+  --card2: rgba(255,255,255,.08);
+  --border: rgba(255,255,255,.12);
+  --text: #eaf0ff;
+  --muted: rgba(234,240,255,.7);
+  --accent: #4f7cff;
+  --danger: #b84a5a;
+  --shadow: 0 20px 60px rgba(0,0,0,.45);
+  --radius: 18px;
   --sidebar-w: 260px;
+  --input-bg: rgba(10,14,28,.55);
+  --btn-bg: rgba(255,255,255,.06);
+  --btn-hover: rgba(255,255,255,.09);
+  --placeholder: rgba(234,240,255,.45);
+  --sidebar-bg: rgba(8, 12, 28, 0.99);
+  --topbar-bg: rgba(6,8,18,0.92);
+  --theme-icon: "☀️";
 }
 
-*{box-sizing:border-box}
-html,body{height:100%; overflow-x:hidden;}
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
-  color:var(--text);
-  background:
-    radial-gradient(900px 700px at 75% 20%, rgba(115,62,255,.22), transparent 55%),
-    radial-gradient(800px 600px at 15% 10%, rgba(40,120,255,.16), transparent 55%),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
+/* === Светлая тема === */
+[data-theme="light"] {
+  --bg0: #f0f4ff;
+  --bg1: #e4ebff;
+  --bg-body: radial-gradient(900px 700px at 75% 20%, rgba(100,130,255,.12), transparent 55%),
+             radial-gradient(800px 600px at 15% 10%, rgba(80,160,255,.10), transparent 55%),
+             linear-gradient(180deg, #f0f4ff, #e4ebff);
+  --card: rgba(0,0,0,.05);
+  --card2: rgba(0,0,0,.07);
+  --border: rgba(0,0,0,.13);
+  --text: #1a1f3c;
+  --muted: rgba(26,31,60,.65);
+  --accent: #3b6af5;
+  --danger: #c0394a;
+  --shadow: 0 20px 60px rgba(0,0,0,.10);
+  --input-bg: rgba(255,255,255,.75);
+  --btn-bg: rgba(0,0,0,.05);
+  --btn-hover: rgba(0,0,0,.09);
+  --placeholder: rgba(26,31,60,.35);
+  --sidebar-bg: rgba(240,244,255,0.99);
+  --topbar-bg: rgba(240,244,255,0.95);
 }
 
-a{color:inherit}
-.muted{color:var(--muted)}
-.error{color:#ff6b7a; font-size:12px}
+/* === Базовый сброс === */
+*, *::before, *::after { box-sizing: border-box; }
 
-input, select, textarea, button{
-  font:inherit;
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  margin: 0;
 }
 
-input, select, textarea{
-  width:100%;
-  padding:12px 14px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:rgba(10,14,28,.55);
-  color:var(--text);
-  outline:none;
-  transition:.15s ease;
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", sans-serif;
+  color: var(--text);
+  background: var(--bg-body);
+  min-height: 100vh;
+  transition: color .2s, background .2s;
 }
 
-input::placeholder, textarea::placeholder{
-  color:rgba(234,240,255,.45);
+a { color: inherit; }
+.muted { color: var(--muted); }
+.error { color: #ff6b7a; font-size: 12px; }
+
+/* === Формы === */
+input, select, textarea, button { font: inherit; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
 }
 
-input:focus, select:focus, textarea:focus{
-  border-color:rgba(79,124,255,.55);
-  box-shadow:0 0 0 4px rgba(79,124,255,.14);
+input::placeholder, textarea::placeholder { color: var(--placeholder); }
+
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(79,124,255,.55);
+  box-shadow: 0 0 0 4px rgba(79,124,255,.14);
 }
 
-select{
-  appearance:none;
+select { appearance: none; }
+
+textarea { min-height: 120px; resize: vertical; }
+
+button {
+  border: 1px solid var(--border);
+  background: var(--btn-bg);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .15s;
 }
 
-textarea{
-  min-height:120px;
-  resize:vertical;
+button:hover { background: var(--btn-hover); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-primary {
+  background: rgba(79,124,255,.22);
+  border-color: rgba(79,124,255,.35);
 }
+.btn-primary:hover { background: rgba(79,124,255,.28); }
 
-button{
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  padding:10px 14px;
-  border-radius:12px;
-  cursor:pointer;
-  transition:.15s ease;
+.btn-danger {
+  background: rgba(184,74,90,.18);
+  border-color: rgba(184,74,90,.35);
 }
+.btn-danger:hover { background: rgba(184,74,90,.24); }
 
-button:hover{background:rgba(255,255,255,.09)}
-button:disabled{opacity:.55; cursor:not-allowed}
-
-.btn-primary{
-  background:rgba(79,124,255,.22);
-  border-color:rgba(79,124,255,.35);
-}
-.btn-primary:hover{background:rgba(79,124,255,.28)}
-
-.btn-danger{
-  background:rgba(184,74,90,.18);
-  border-color:rgba(184,74,90,.35);
-}
-.btn-danger:hover{background:rgba(184,74,90,.24)}
-
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  box-shadow:var(--shadow);
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 /* === Workspace layout === */
-.ws-root {
-  padding: 16px;
-}
+.ws-root { padding: 16px; }
 
 .ws-layout {
   display: flex;
@@ -114,21 +147,17 @@ button:disabled{opacity:.55; cursor:not-allowed}
 .ws-content {
   flex: 1;
   min-width: 0;
+  overflow-x: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
-.ws-topbar {
-  display: none;
-}
+/* Mobile elements — скрыты на десктопе */
+.ws-topbar    { display: none; }
+.ws-hamburger { display: none; }
+.ws-overlay   { display: none; }
 
-.ws-hamburger {
-  display: none;
-}
-
-.ws-overlay {
-  display: none;
-}
-
-/* === Responsive grids === */
+/* === Адаптивные гриды === */
 .grid-2col {
   display: grid;
   gap: 12px;
@@ -147,25 +176,34 @@ button:disabled{opacity:.55; cursor:not-allowed}
   grid-template-columns: 320px 1fr;
 }
 
-/* === Mobile === */
-@media (max-width: 768px) {
-  .ws-root {
-    padding: 0;
-  }
+/* === Кнопка переключения темы === */
+.theme-btn {
+  font-size: 18px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  line-height: 1;
+}
 
+/* === Mobile @media === */
+@media (max-width: 768px) {
+  .ws-root { padding: 0; }
+
+  /* Мобильный топбар */
   .ws-topbar {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
-    background: rgba(6,8,18,0.92);
+    background: var(--topbar-bg);
     position: sticky;
     top: 0;
     z-index: 90;
     backdrop-filter: blur(14px);
+    overflow: hidden;
   }
 
+  /* Hamburger */
   .ws-hamburger {
     display: flex;
     flex-direction: column;
@@ -178,34 +216,32 @@ button:disabled{opacity:.55; cursor:not-allowed}
     border-radius: 10px;
     flex-shrink: 0;
   }
-
   .ws-hamburger span {
     display: block;
     width: 20px;
     height: 2px;
     background: var(--text);
     border-radius: 2px;
-    transition: .2s ease;
+    transition: .2s;
   }
 
+  /* Overlay */
   .ws-overlay {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0);
+    background: transparent;
     z-index: 98;
     pointer-events: none;
-    transition: background .25s ease;
+    transition: background .25s;
   }
   .ws-overlay.open {
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,.5);
     pointer-events: auto;
   }
 
-  .ws-layout {
-    flex-direction: column;
-    gap: 0;
-  }
+  /* Sidebar — slide-in */
+  .ws-layout { flex-direction: column; gap: 0; }
 
   .ws-sidebar {
     position: fixed;
@@ -215,57 +251,40 @@ button:disabled{opacity:.55; cursor:not-allowed}
     width: var(--sidebar-w);
     min-width: 0;
     z-index: 99;
-    background: rgba(8, 12, 28, 0.99);
+    background: var(--sidebar-bg);
     border-right: 1px solid var(--border);
     padding: 20px 16px;
     overflow-y: auto;
     transition: left .28s cubic-bezier(.4,0,.2,1);
   }
-
   .ws-sidebar.open {
     left: 0;
-    box-shadow: 8px 0 40px rgba(0,0,0,0.6);
+    box-shadow: 8px 0 40px rgba(0,0,0,.5);
   }
 
+  /* Content */
   .ws-content {
     width: 100%;
+    max-width: 100vw;
     padding: 16px;
+    overflow-x: hidden;
   }
 
-  .grid-2col {
-    grid-template-columns: 1fr;
-  }
-
-  .grid-ticket-form {
-    grid-template-columns: 1fr;
-  }
-
-  .grid-chat {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* === Legacy === */
-.navbtn{width:100%; text-align:left; padding:12px 14px; border-radius:14px}
-.section{padding:18px}
-.h1{font-size:20px; font-weight:700; margin:0 0 8px}
-.h2{font-size:14px; font-weight:600; margin:0 0 6px; color:var(--muted)}
-
-/* === Fix mobile horizontal overflow === */
-@media (max-width: 768px) {
+  /* Фикс переполнения текста в карточках */
   .ws-content * {
     max-width: 100%;
     word-break: break-word;
     overflow-wrap: break-word;
   }
 
-  /* Карточки не должны выходить за экран */
-  .ws-content > div {
-    overflow-x: hidden;
-  }
-
-  /* Заголовок в топбаре не обрезает текст вправо */
-  .ws-topbar {
-    overflow: hidden;
-  }
+  /* Коллапс гридов */
+  .grid-2col          { grid-template-columns: 1fr; }
+  .grid-ticket-form   { grid-template-columns: 1fr; }
+  .grid-chat          { grid-template-columns: 1fr; }
 }
+
+/* === Legacy === */
+.navbtn  { width: 100%; text-align: left; padding: 12px 14px; border-radius: 14px; }
+.section { padding: 18px; }
+.h1      { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+.h2      { font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--muted); }
