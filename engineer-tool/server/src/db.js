@@ -132,6 +132,22 @@ async function migrate(p) {
   await p.query(
     `CREATE INDEX IF NOT EXISTS idx_chat_pair ON chat_messages(from_user_id, to_user_id);`
   );
+
+  // === Wiki articles ===
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS wiki_articles (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      body TEXT,
+      images TEXT DEFAULT '[]',
+      created_by_user_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_category ON wiki_articles(category);`);
+  await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_updated_at ON wiki_articles(updated_at);`);
 }
 
 export async function initDb() {
