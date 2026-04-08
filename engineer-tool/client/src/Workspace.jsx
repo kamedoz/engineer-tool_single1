@@ -7,6 +7,9 @@ import {
   ChatAPI,
 } from "./api.js";
 import WikiSection from "./components/WikiSection.jsx";
+import ProfileSection from "./components/ProfileSection.jsx";
+import LeaderboardSection from "./components/LeaderboardSection.jsx";
+import AdminUsersSection from "./components/AdminUsersSection.jsx";
 
 /* ── helpers ── */
 function fmtISODateInput(value) {
@@ -345,7 +348,7 @@ function TicketModal({ open, ticket, onClose, onUpdated, setError, downloadPdf }
 /* ════════════════════════════════════════
    WORKSPACE (main component)
    ════════════════════════════════════════ */
-export default function Workspace({ me, onLogout }) {
+export default function Workspace({ me, onLogout, onRefreshMe }) {
   const [tab, setTab] = useState("tickets");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
@@ -385,8 +388,8 @@ export default function Workspace({ me, onLogout }) {
   const meLabel = useMemo(() => {
     if (!me?.user) return "";
     const u = me.user;
-    const name = `${u.first_name || ""} ${u.last_name || ""}`.trim();
-    return `${name || u.email} · ${u.role || ""}`;
+    const name = u.display_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email;
+    return `${u.badge_icon ? `${u.badge_icon} ` : ""}${name} · ${u.role || ""} · lvl ${u.level || 1}`;
   }, [me]);
 
   function switchTab(t) { setTab(t); setSidebarOpen(false); }
@@ -583,6 +586,11 @@ export default function Workspace({ me, onLogout }) {
             <button onClick={() => switchTab("kb")}>Решения / База проблем</button>
             <button onClick={() => { switchTab("chat"); refreshChatThreads(); }}>Чат</button>
             <button onClick={() => switchTab("wiki")}>📚 Библиотека знаний</button>
+            <button onClick={() => switchTab("profile")}>Профиль</button>
+            <button onClick={() => switchTab("leaderboard")}>Рейтинг</button>
+            {me?.user?.role === "admin" ? (
+              <button onClick={() => switchTab("adminUsers")}>Пользователи</button>
+            ) : null}
             <button onClick={onLogout}>Выйти</button>
           </div>
 
@@ -738,7 +746,13 @@ export default function Workspace({ me, onLogout }) {
           )}
 
           {/* ── WIKI ── */}
-          {tab === "wiki" && <WikiSection />}
+          {tab === "wiki" && <WikiSection me={me} onMeRefresh={onRefreshMe} />}
+
+          {tab === "profile" && <ProfileSection me={me} onMeRefresh={onRefreshMe} />}
+
+          {tab === "leaderboard" && <LeaderboardSection />}
+
+          {tab === "adminUsers" && me?.user?.role === "admin" ? <AdminUsersSection /> : null}
 
           {/* ── CHAT ── */}
           {tab === "chat" && (

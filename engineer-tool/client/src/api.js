@@ -59,6 +59,11 @@ export const AuthAPI = {
 export const UsersAPI = {
   me: () => request("GET", "/api/users/me"),
   list: () => request("GET", "/api/users"),
+  leaderboard: () => request("GET", "/api/users/leaderboard"),
+  adminList: () => request("GET", "/api/users/admin/list"),
+  updateAvatar: (avatar_url) => request("PUT", "/api/users/me/avatar", { avatar_url }),
+  customize: (payload) => request("POST", "/api/users/me/customize", payload),
+  updatePermissions: (id, payload) => request("PUT", `/api/users/${id}/permissions`, payload),
 };
 
 export const CategoriesAPI = {

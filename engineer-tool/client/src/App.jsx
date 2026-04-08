@@ -95,7 +95,7 @@ export default function App() {
       {bootError ? (
         <div style={{ padding: 12, color: "#ff6b6b" }}>{bootError}</div>
       ) : null}
-      <Workspace me={me} onLogout={logout} />
+      <Workspace me={me} onLogout={logout} onRefreshMe={loadMe} />
     </div>
   );
 }

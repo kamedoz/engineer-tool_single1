@@ -1,44 +1,103 @@
-// server/src/routes/wiki.js
 import express from "express";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
+import { XP_PER_ARTICLE, getDisplayName, getUserLevel } from "../utils/users.js";
 
 const router = express.Router();
 
-/**
- * GET /api/wiki?category=...&search=...
- */
+function parseImages(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeArticle(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    body: row.body,
+    images: parseImages(row.images),
+    created_by_user_id: row.created_by_user_id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    author: row.author_id
+      ? {
+          id: row.author_id,
+          display_name: getDisplayName(row),
+          avatar_url: row.avatar_url || "",
+          nickname_color: row.nickname_color || "",
+          badge_icon: row.badge_icon || "",
+          level: getUserLevel(row.experience),
+          role: row.author_role || "",
+        }
+      : null,
+  };
+}
+
+async function getActor(db, userId) {
+  if (!userId) return null;
+  const q = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
+  return q.rows?.[0] || null;
+}
+
+function canEditWiki(actor) {
+  return Boolean(actor) && (actor.role === "admin" || actor.can_edit_wiki);
+}
+
+function canDeleteWiki(actor) {
+  return Boolean(actor) && (actor.role === "admin" || actor.can_delete_wiki);
+}
+
+function baseArticleQuery() {
+  return `
+    SELECT
+      w.id, w.title, w.category, w.body, w.images, w.created_by_user_id, w.created_at, w.updated_at,
+      u.id AS author_id, u.first_name, u.last_name, u.email, u.avatar_url, u.nickname_color,
+      u.badge_icon, u.experience, u.role AS author_role
+    FROM wiki_articles w
+    LEFT JOIN users u ON u.id = w.created_by_user_id
+  `;
+}
+
 router.get("/", async (req, res) => {
   const db = getDb();
   const { category, search } = req.query;
   try {
-    let q = `SELECT id, title, category, body, images, created_by_user_id, created_at, updated_at FROM wiki_articles`;
+    let q = baseArticleQuery();
     const params = [];
     const conditions = [];
 
     if (category) {
       params.push(String(category));
-      conditions.push(`LOWER(category) = LOWER($${params.length})`);
+      conditions.push(`LOWER(w.category) = LOWER($${params.length})`);
     }
     if (search) {
       params.push(`%${String(search).toLowerCase()}%`);
-      conditions.push(`(LOWER(title) LIKE $${params.length} OR LOWER(body) LIKE $${params.length} OR LOWER(category) LIKE $${params.length})`);
+      conditions.push(
+        `(LOWER(w.title) LIKE $${params.length} OR LOWER(w.body) LIKE $${params.length} OR LOWER(w.category) LIKE $${params.length})`
+      );
     }
-    if (conditions.length) q += ` WHERE ` + conditions.join(" AND ");
-    q += ` ORDER BY updated_at DESC`;
+    if (conditions.length) q += ` WHERE ${conditions.join(" AND ")}`;
+    q += ` ORDER BY w.updated_at DESC`;
 
     const result = await db.query(q, params);
-    return res.json(result.rows || []);
+    return res.json((result.rows || []).map(normalizeArticle));
   } catch (e) {
     console.error("WIKI GET ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
 
-/**
- * GET /api/wiki/categories — список уникальных категорий
- */
-router.get("/categories", async (req, res) => {
+router.get("/categories", async (_req, res) => {
   const db = getDb();
   try {
     const result = await db.query(
@@ -51,27 +110,18 @@ router.get("/categories", async (req, res) => {
   }
 });
 
-/**
- * GET /api/wiki/:id
- */
 router.get("/:id", async (req, res) => {
   const db = getDb();
   try {
-    const result = await db.query(
-      `SELECT id, title, category, body, images, created_by_user_id, created_at, updated_at FROM wiki_articles WHERE id=$1`,
-      [req.params.id]
-    );
+    const result = await db.query(`${baseArticleQuery()} WHERE w.id=$1`, [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: "not found" });
-    return res.json(result.rows[0]);
+    return res.json(normalizeArticle(result.rows[0]));
   } catch (e) {
+    console.error("WIKI GET BY ID ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
 
-/**
- * POST /api/wiki
- * body: { title, category, body, images? }
- */
 router.post("/", async (req, res) => {
   const db = getDb();
   const { title, category, body, images } = req.body ?? {};
@@ -92,22 +142,33 @@ router.post("/", async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [id, t, cat, b, JSON.stringify(imgs), req.user?.id || null, now, now]
     );
-    return res.json({ id, title: t, category: cat, body: b, images: imgs, created_at: now, updated_at: now });
+
+    if (req.user?.id) {
+      await db.query(`UPDATE users SET experience = experience + $1 WHERE id=$2`, [
+        XP_PER_ARTICLE,
+        req.user.id,
+      ]);
+    }
+
+    const created = await db.query(`${baseArticleQuery()} WHERE w.id=$1`, [id]);
+    return res.json(normalizeArticle(created.rows?.[0]));
   } catch (e) {
     console.error("WIKI POST ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
 
-/**
- * PUT /api/wiki/:id
- */
 router.put("/:id", async (req, res) => {
   const db = getDb();
   const { id } = req.params;
   const { title, category, body, images } = req.body ?? {};
 
   try {
+    const actor = await getActor(db, req.user?.id);
+    if (!canEditWiki(actor)) {
+      return res.status(403).json({ error: "You do not have edit permission" });
+    }
+
     const cur = await db.query(`SELECT * FROM wiki_articles WHERE id=$1`, [id]);
     const current = cur.rows?.[0];
     if (!current) return res.status(404).json({ error: "not found" });
@@ -116,7 +177,10 @@ router.put("/:id", async (req, res) => {
       title: title != null ? String(title).trim() : current.title,
       category: category != null ? String(category).trim() : current.category,
       body: body != null ? String(body) : current.body,
-      images: images != null ? (Array.isArray(images) ? images : []) : (current.images ? JSON.parse(current.images) : []),
+      images:
+        images != null
+          ? (Array.isArray(images) ? images : [])
+          : parseImages(current.images),
     };
 
     if (!next.title) return res.status(400).json({ error: "title is required" });
@@ -128,23 +192,27 @@ router.put("/:id", async (req, res) => {
       [next.title, next.category, next.body, JSON.stringify(next.images), now, id]
     );
 
-    return res.json({ id, ...next, updated_at: now });
+    const updated = await db.query(`${baseArticleQuery()} WHERE w.id=$1`, [id]);
+    return res.json(normalizeArticle(updated.rows?.[0]));
   } catch (e) {
     console.error("WIKI PUT ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
 
-/**
- * DELETE /api/wiki/:id
- */
 router.delete("/:id", async (req, res) => {
   const db = getDb();
   try {
+    const actor = await getActor(db, req.user?.id);
+    if (!canDeleteWiki(actor)) {
+      return res.status(403).json({ error: "You do not have delete permission" });
+    }
+
     const d = await db.query(`DELETE FROM wiki_articles WHERE id=$1`, [req.params.id]);
     if (!d.rowCount) return res.status(404).json({ error: "not found" });
     return res.json({ ok: true });
   } catch (e) {
+    console.error("WIKI DELETE ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });

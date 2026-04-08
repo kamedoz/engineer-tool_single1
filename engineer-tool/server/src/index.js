@@ -62,16 +62,26 @@ async function seedAdmin() {
     const id = uid("u_");
     const hash = bcrypt.hashSync(password, 10);
     await db.query(
-      `INSERT INTO users (id,email,password_hash,first_name,last_name,role,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, email, hash, "Admin", "User", "admin", now]
+      `INSERT INTO users (
+        id,email,password_hash,first_name,last_name,role,
+        can_edit_wiki,can_delete_wiki,created_at
+      )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id, email, hash, "Admin", "User", "admin", true, true, now]
     );
     console.log("Seeded admin user:", email);
   } else {
     if (existing.role !== "admin") {
-      await db.query(`UPDATE users SET role='admin' WHERE email=$1`, [email]);
+      await db.query(
+        `UPDATE users SET role='admin', can_edit_wiki=TRUE, can_delete_wiki=TRUE WHERE email=$1`,
+        [email]
+      );
       console.log("Updated user role to admin:", email);
     } else {
+      await db.query(
+        `UPDATE users SET can_edit_wiki=TRUE, can_delete_wiki=TRUE WHERE email=$1`,
+        [email]
+      );
       console.log("Admin user exists:", email);
     }
   }

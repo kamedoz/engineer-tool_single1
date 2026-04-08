@@ -37,9 +37,23 @@ async function migrate(p) {
       first_name TEXT,
       last_name TEXT,
       role TEXT NOT NULL DEFAULT 'engineer',
+      avatar_url TEXT,
+      can_edit_wiki BOOLEAN NOT NULL DEFAULT FALSE,
+      can_delete_wiki BOOLEAN NOT NULL DEFAULT FALSE,
+      experience INTEGER NOT NULL DEFAULT 0,
+      spent_experience INTEGER NOT NULL DEFAULT 0,
+      nickname_color TEXT,
+      badge_icon TEXT,
       created_at TEXT NOT NULL
     );
   `);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_edit_wiki BOOLEAN NOT NULL DEFAULT FALSE;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_delete_wiki BOOLEAN NOT NULL DEFAULT FALSE;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience INTEGER NOT NULL DEFAULT 0;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS spent_experience INTEGER NOT NULL DEFAULT 0;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname_color TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS badge_icon TEXT;`);
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -148,6 +162,7 @@ async function migrate(p) {
   `);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_category ON wiki_articles(category);`);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_updated_at ON wiki_articles(updated_at);`);
+  await p.query(`CREATE INDEX IF NOT EXISTS idx_users_experience ON users(experience DESC, created_at ASC);`);
 }
 
 export async function initDb() {

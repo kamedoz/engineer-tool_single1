@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
+import { serializeUser } from "../utils/users.js";
 
 const router = express.Router();
 
@@ -48,16 +49,30 @@ async function handleRegister(req, res) {
     const passwordHash = bcrypt.hashSync(password, 10);
 
     await db.query(
-      `INSERT INTO users (id,email,password_hash,first_name,last_name,role,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, email, passwordHash, first_name, last_name, role, now]
+      `INSERT INTO users (
+        id,email,password_hash,first_name,last_name,role,
+        can_edit_wiki,can_delete_wiki,experience,spent_experience,created_at
+      )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, email, passwordHash, first_name, last_name, role, false, false, 0, 0, now]
     );
 
     const token = signToken({ id, email, role });
 
     return res.json({
       token,
-      user: { id, email, first_name, last_name, role },
+      user: serializeUser({
+        id,
+        email,
+        first_name,
+        last_name,
+        role,
+        can_edit_wiki: false,
+        can_delete_wiki: false,
+        experience: 0,
+        spent_experience: 0,
+        created_at: now,
+      }),
     });
   } catch (e) {
     // Postgres unique violation
@@ -93,13 +108,7 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role,
-      },
+      user: serializeUser(user),
     });
   } catch (e) {
     console.error("LOGIN ERROR:", e);
