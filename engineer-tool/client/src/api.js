@@ -105,9 +105,13 @@ export const TicketsAPI = {
 
 export const ChatAPI = {
   listThreads: () => request("GET", "/api/chat/threads"),
+  listGlobalMessages: () => request("GET", "/api/chat/global"),
   listMessages: (otherUserId) => request("GET", `/api/chat/${otherUserId}`),
+  sendGlobal: (text) => request("POST", "/api/chat/global", { text }),
   send: (otherUserId, text) =>
     request("POST", `/api/chat/${otherUserId}`, { text }),
+  updateMessage: (messageId, text) => request("PUT", `/api/chat/messages/${messageId}`, { text }),
+  removeMessage: (messageId) => request("DELETE", `/api/chat/messages/${messageId}`),
 };
 
 export const WikiAPI = {

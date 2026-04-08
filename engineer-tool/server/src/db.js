@@ -127,11 +127,18 @@ async function migrate(p) {
     CREATE TABLE IF NOT EXISTS chat_messages (
       id TEXT PRIMARY KEY,
       from_user_id TEXT NOT NULL,
-      to_user_id TEXT NOT NULL,
+      to_user_id TEXT,
+      channel TEXT NOT NULL DEFAULT 'direct',
       text TEXT NOT NULL,
+      updated_at TEXT,
+      deleted_at TEXT,
       created_at TEXT NOT NULL
     );
   `);
+  await p.query(`ALTER TABLE chat_messages ALTER COLUMN to_user_id DROP NOT NULL;`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'direct';`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS updated_at TEXT;`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_at TEXT;`);
 
   // Helpful indexes
   await p.query(
@@ -145,6 +152,9 @@ async function migrate(p) {
   );
   await p.query(
     `CREATE INDEX IF NOT EXISTS idx_chat_pair ON chat_messages(from_user_id, to_user_id);`
+  );
+  await p.query(
+    `CREATE INDEX IF NOT EXISTS idx_chat_channel_created_at ON chat_messages(channel, created_at);`
   );
 
   // === Wiki articles ===

@@ -1,26 +1,54 @@
-// server/src/routes/chat.js
-// Matches client API:
-//   GET  /api/chat/threads
-//   GET  /api/chat/:otherUserId
-//   POST /api/chat/:otherUserId  { text }
-
 import express from "express";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
+import { getDisplayName, getUserLevel } from "../utils/users.js";
 
 const router = express.Router();
 
-/**
- * GET /api/chat/threads
- * Returns people you have chatted with, last message time.
- */
+function mapMessage(row) {
+  return {
+    id: row.id,
+    from_user_id: row.from_user_id,
+    to_user_id: row.to_user_id,
+    channel: row.channel,
+    text: row.deleted_at ? "[message deleted]" : row.text,
+    is_deleted: Boolean(row.deleted_at),
+    updated_at: row.updated_at,
+    created_at: row.created_at,
+    sender: {
+      id: row.sender_id,
+      display_name: getDisplayName(row),
+      avatar_url: row.avatar_url || "",
+      nickname_color: row.nickname_color || "",
+      badge_icon: row.badge_icon || "",
+      level: getUserLevel(row.experience),
+      role: row.sender_role || "",
+    },
+  };
+}
+
+async function getActor(db, userId) {
+  const q = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
+  return q.rows?.[0] || null;
+}
+
+function baseMessageQuery() {
+  return `
+    SELECT
+      m.id, m.from_user_id, m.to_user_id, m.channel, m.text, m.updated_at, m.deleted_at, m.created_at,
+      u.id AS sender_id, u.first_name, u.last_name, u.email, u.avatar_url, u.nickname_color,
+      u.badge_icon, u.experience, u.role AS sender_role
+    FROM chat_messages m
+    LEFT JOIN users u ON u.id = m.from_user_id
+  `;
+}
+
 router.get("/threads", async (req, res) => {
   const db = getDb();
   const me = req.user?.id;
   if (!me) return res.status(401).json({ error: "Missing token" });
 
   try {
-    // Get distinct counterpart ids from both directions
     const q = await db.query(
       `
       WITH pairs AS (
@@ -28,13 +56,17 @@ router.get("/threads", async (req, res) => {
           CASE WHEN from_user_id = $1 THEN to_user_id ELSE from_user_id END AS other_user_id,
           created_at
         FROM chat_messages
-        WHERE from_user_id = $1 OR to_user_id = $1
+        WHERE channel = 'direct'
+          AND deleted_at IS NULL
+          AND (from_user_id = $1 OR to_user_id = $1)
       )
       SELECT p.other_user_id, MAX(p.created_at) AS last_at,
-             u.email AS other_email, u.first_name, u.last_name
+             u.email AS other_email, u.first_name, u.last_name, u.avatar_url, u.nickname_color,
+             u.badge_icon, u.experience, u.role
       FROM pairs p
       LEFT JOIN users u ON u.id = p.other_user_id
-      GROUP BY p.other_user_id, u.email, u.first_name, u.last_name
+      GROUP BY p.other_user_id, u.email, u.first_name, u.last_name, u.avatar_url, u.nickname_color,
+               u.badge_icon, u.experience, u.role
       ORDER BY MAX(p.created_at) DESC
       LIMIT 200
       `,
@@ -44,10 +76,12 @@ router.get("/threads", async (req, res) => {
     const threads = (q.rows || []).map((r) => ({
       other_user_id: r.other_user_id,
       other_email: r.other_email,
-      name:
-        (r.first_name || r.last_name)
-          ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
-          : null,
+      name: getDisplayName(r),
+      avatar_url: r.avatar_url || "",
+      nickname_color: r.nickname_color || "",
+      badge_icon: r.badge_icon || "",
+      level: getUserLevel(r.experience),
+      role: r.role || "",
       last_at: r.last_at,
     }));
 
@@ -58,9 +92,113 @@ router.get("/threads", async (req, res) => {
   }
 });
 
-/**
- * GET /api/chat/:otherUserId
- */
+router.get("/global", async (_req, res) => {
+  const db = getDb();
+  try {
+    const q = await db.query(
+      `${baseMessageQuery()}
+       WHERE m.channel = 'global'
+       ORDER BY m.created_at ASC
+       LIMIT 500`
+    );
+    return res.json({ messages: (q.rows || []).map(mapMessage) });
+  } catch (e) {
+    console.error("CHAT GLOBAL ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/global", async (req, res) => {
+  const db = getDb();
+  const me = req.user?.id;
+  const msgText = String(req.body?.text || "").trim();
+
+  if (!me) return res.status(401).json({ error: "Missing token" });
+  if (!msgText) return res.status(400).json({ error: "Empty message" });
+
+  const msg = {
+    id: uid("m_"),
+    from_user_id: me,
+    to_user_id: null,
+    channel: "global",
+    text: msgText,
+    updated_at: null,
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    await db.query(
+      `INSERT INTO chat_messages (id, from_user_id, to_user_id, channel, text, updated_at, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [msg.id, msg.from_user_id, msg.to_user_id, msg.channel, msg.text, msg.updated_at, msg.created_at]
+    );
+    const created = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [msg.id]);
+    return res.json({ message: mapMessage(created.rows?.[0]) });
+  } catch (e) {
+    console.error("CHAT GLOBAL SEND ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.put("/messages/:messageId", async (req, res) => {
+  const db = getDb();
+  const me = req.user?.id;
+  const { messageId } = req.params;
+  const text = String(req.body?.text || "").trim();
+  if (!me) return res.status(401).json({ error: "Missing token" });
+  if (!text) return res.status(400).json({ error: "Empty message" });
+
+  try {
+    const actor = await getActor(db, me);
+    const current = await db.query(`SELECT * FROM chat_messages WHERE id=$1`, [messageId]);
+    const message = current.rows?.[0];
+    if (!message) return res.status(404).json({ error: "Message not found" });
+    if (message.deleted_at) return res.status(400).json({ error: "Message already deleted" });
+    if (message.from_user_id !== me && actor?.role !== "admin") {
+      return res.status(403).json({ error: "Cannot edit this message" });
+    }
+
+    const updatedAt = new Date().toISOString();
+    await db.query(`UPDATE chat_messages SET text=$1, updated_at=$2 WHERE id=$3`, [
+      text,
+      updatedAt,
+      messageId,
+    ]);
+
+    const updated = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [messageId]);
+    return res.json({ message: mapMessage(updated.rows?.[0]) });
+  } catch (e) {
+    console.error("CHAT MESSAGE EDIT ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.delete("/messages/:messageId", async (req, res) => {
+  const db = getDb();
+  const me = req.user?.id;
+  const { messageId } = req.params;
+  if (!me) return res.status(401).json({ error: "Missing token" });
+
+  try {
+    const actor = await getActor(db, me);
+    const current = await db.query(`SELECT * FROM chat_messages WHERE id=$1`, [messageId]);
+    const message = current.rows?.[0];
+    if (!message) return res.status(404).json({ error: "Message not found" });
+    if (message.from_user_id !== me && actor?.role !== "admin") {
+      return res.status(403).json({ error: "Cannot delete this message" });
+    }
+
+    await db.query(`UPDATE chat_messages SET deleted_at=$1 WHERE id=$2`, [
+      new Date().toISOString(),
+      messageId,
+    ]);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("CHAT MESSAGE DELETE ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
 router.get("/:otherUserId", async (req, res) => {
   const db = getDb();
   const me = req.user?.id;
@@ -70,54 +208,50 @@ router.get("/:otherUserId", async (req, res) => {
 
   try {
     const q = await db.query(
-      `
-      SELECT id, from_user_id, to_user_id, text, created_at
-      FROM chat_messages
-      WHERE (from_user_id = $1 AND to_user_id = $2)
-         OR (from_user_id = $2 AND to_user_id = $1)
-      ORDER BY created_at ASC
-      LIMIT 500
-      `,
+      `${baseMessageQuery()}
+       WHERE m.channel = 'direct'
+         AND ((m.from_user_id = $1 AND m.to_user_id = $2)
+           OR (m.from_user_id = $2 AND m.to_user_id = $1))
+       ORDER BY m.created_at ASC
+       LIMIT 500`,
       [me, other]
     );
 
-    return res.json({ messages: q.rows || [] });
+    return res.json({ messages: (q.rows || []).map(mapMessage) });
   } catch (e) {
     console.error("CHAT MESSAGES ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
 
-/**
- * POST /api/chat/:otherUserId
- * body: { text }
- */
 router.post("/:otherUserId", async (req, res) => {
   const db = getDb();
   const me = req.user?.id;
   const other = req.params.otherUserId;
-  const { text } = req.body ?? {};
+  const msgText = String(req.body?.text || "").trim();
 
   if (!me) return res.status(401).json({ error: "Missing token" });
   if (!other) return res.status(400).json({ error: "Missing otherUserId" });
-  const msgText = String(text || "").trim();
   if (!msgText) return res.status(400).json({ error: "Empty message" });
 
   const msg = {
     id: uid("m_"),
     from_user_id: me,
     to_user_id: other,
+    channel: "direct",
     text: msgText,
+    updated_at: null,
     created_at: new Date().toISOString(),
   };
 
   try {
     await db.query(
-      `INSERT INTO chat_messages (id, from_user_id, to_user_id, text, created_at)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [msg.id, msg.from_user_id, msg.to_user_id, msg.text, msg.created_at]
+      `INSERT INTO chat_messages (id, from_user_id, to_user_id, channel, text, updated_at, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [msg.id, msg.from_user_id, msg.to_user_id, msg.channel, msg.text, msg.updated_at, msg.created_at]
     );
-    return res.json({ message: msg });
+    const created = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [msg.id]);
+    return res.json({ message: mapMessage(created.rows?.[0]) });
   } catch (e) {
     console.error("CHAT SEND ERROR:", e);
     return res.status(500).json({ error: "Internal error" });

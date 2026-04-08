@@ -381,9 +381,12 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
   const [newIssue, setNewIssue] = useState({ category_id: "", title: "", description: "", steps: "", solution: "" });
 
   const [threads, setThreads] = useState([]);
+  const [selectedChatMode, setSelectedChatMode] = useState("global");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [messages, setMessages] = useState([]);
   const [chatText, setChatText] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState("");
+  const [editingMessageText, setEditingMessageText] = useState("");
 
   const meLabel = useMemo(() => {
     if (!me?.user) return "";
@@ -424,7 +427,7 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
   async function loadMessages(id) {
     setError("");
     try {
-      const m = await ChatAPI.listMessages(id);
+      const m = id ? await ChatAPI.listMessages(id) : await ChatAPI.listGlobalMessages();
       setMessages(m?.messages || m || []);
     } catch (e) { setError(e?.message || "HTTP error"); }
   }
@@ -500,11 +503,38 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
 
   async function sendMessage() {
     const text = chatText.trim();
-    if (!selectedUserId || !text) return;
+    if ((!selectedUserId && selectedChatMode === "direct") || !text) return;
     try {
-      await ChatAPI.send(selectedUserId, text);
+      if (selectedChatMode === "global") {
+        await ChatAPI.sendGlobal(text);
+        await loadMessages("");
+      } else {
+        await ChatAPI.send(selectedUserId, text);
+        await loadMessages(selectedUserId);
+      }
       setChatText("");
-      await loadMessages(selectedUserId);
+      await refreshChatThreads();
+    } catch (e) { setError(e?.message || "HTTP error"); }
+  }
+
+  async function saveEditedMessage() {
+    const text = editingMessageText.trim();
+    if (!editingMessageId || !text) return;
+    try {
+      await ChatAPI.updateMessage(editingMessageId, text);
+      setEditingMessageId("");
+      setEditingMessageText("");
+      await loadMessages(selectedChatMode === "global" ? "" : selectedUserId);
+    } catch (e) { setError(e?.message || "HTTP error"); }
+  }
+
+  async function deleteMessage(messageId) {
+    if (!messageId) return;
+    // eslint-disable-next-line no-restricted-globals
+    if (!confirm("Удалить сообщение?")) return;
+    try {
+      await ChatAPI.removeMessage(messageId);
+      await loadMessages(selectedChatMode === "global" ? "" : selectedUserId);
       await refreshChatThreads();
     } catch (e) { setError(e?.message || "HTTP error"); }
   }
@@ -548,7 +578,26 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
     });
   }, [issues, issueSearch, issueCategoryFilter]);
 
-  const tabLabels = { tickets: "Заявки", kb: "База проблем", chat: "Чат", wiki: "Библиотека знаний" };
+  const tabLabels = { tickets: "Заявки", kb: "Пошаговые инструкции", chat: "Чат", wiki: "Библиотека знаний" };
+
+  const recentMap = useMemo(() => {
+    const map = new Map();
+    threads.forEach((item) => map.set(item.other_user_id, item));
+    return map;
+  }, [threads]);
+
+  const chatUsers = useMemo(() => {
+    return [...users]
+      .filter((user) => user.id !== me?.user?.id)
+      .sort((a, b) => {
+        const aLast = recentMap.get(a.id)?.last_at || "";
+        const bLast = recentMap.get(b.id)?.last_at || "";
+        if (aLast && bLast) return bLast.localeCompare(aLast);
+        if (aLast) return -1;
+        if (bLast) return 1;
+        return (a.display_name || a.email || "").localeCompare(b.display_name || b.email || "");
+      });
+  }, [users, me, recentMap]);
 
   /* ── Render ── */
   return (
@@ -583,8 +632,8 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
 
           <div style={{ display: "grid", gap: 8 }}>
             <button onClick={() => switchTab("tickets")}>Заявки</button>
-            <button onClick={() => switchTab("kb")}>Решения / База проблем</button>
-            <button onClick={() => { switchTab("chat"); refreshChatThreads(); }}>Чат</button>
+            <button onClick={() => switchTab("kb")}>Пошаговые инструкции</button>
+            <button onClick={() => { switchTab("chat"); setSelectedChatMode("global"); setSelectedUserId(""); loadMessages(""); refreshChatThreads(); }}>Чат</button>
             <button onClick={() => switchTab("wiki")}>📚 Библиотека знаний</button>
             <button onClick={() => switchTab("profile")}>Профиль</button>
             <button onClick={() => switchTab("leaderboard")}>Рейтинг</button>
@@ -674,7 +723,7 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
           {/* ── KB ── */}
           {tab === "kb" && (
             <div style={{ display: "grid", gap: 12 }}>
-              <h2 style={{ margin: 0 }}>База проблем</h2>
+              <h2 style={{ margin: 0 }}>Пошаговые инструкции</h2>
 
               <div className="grid-2col">
                 {/* Categories */}
@@ -761,39 +810,87 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
               <div className="grid-chat">
                 <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontWeight: 700 }}>Пользователи</div>
+                    <div style={{ fontWeight: 700 }}>Каналы и пользователи</div>
                     <button onClick={refreshChatThreads}>↻</button>
                   </div>
                   <div style={{ display: "grid", gap: 6 }}>
-                    {threads.length === 0 ? (
-                      <div style={{ opacity: 0.8 }}>Пока нет диалогов.</div>
-                    ) : threads.map((t) => {
-                      const id = t.other_user_id || t.user_id || t.id;
-                      return (
-                        <button key={id} onClick={() => { setSelectedUserId(id); loadMessages(id); }}
-                          style={{ textAlign: "left", padding: 10, borderRadius: 10, border: "1px solid var(--border)", background: selectedUserId === id ? "var(--card2)" : "transparent" }}>
-                          <div style={{ fontWeight: 700 }}>{t.name || t.other_email || t.email || "User"}</div>
-                          <div style={{ opacity: 0.7, fontSize: 12 }}>{t.email || t.other_email || ""}</div>
-                        </button>
-                      );
-                    })}
+                    <button
+                      onClick={() => { setSelectedChatMode("global"); setSelectedUserId(""); setEditingMessageId(""); setEditingMessageText(""); loadMessages(""); }}
+                      style={{ textAlign: "left", padding: 10, borderRadius: 10, border: "1px solid var(--border)", background: selectedChatMode === "global" ? "var(--card2)" : "transparent" }}
+                    >
+                      <div style={{ fontWeight: 700 }}>Общий чат</div>
+                      <div style={{ opacity: 0.7, fontSize: 12 }}>Видят все пользователи</div>
+                    </button>
+                    {chatUsers.length === 0 ? (
+                      <div style={{ opacity: 0.8 }}>Пока нет других пользователей.</div>
+                    ) : chatUsers.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => { setSelectedChatMode("direct"); setSelectedUserId(u.id); setEditingMessageId(""); setEditingMessageText(""); loadMessages(u.id); }}
+                        style={{ textAlign: "left", padding: 10, borderRadius: 10, border: "1px solid var(--border)", background: selectedChatMode === "direct" && selectedUserId === u.id ? "var(--card2)" : "transparent" }}
+                      >
+                        <div style={{ fontWeight: 700, color: u.nickname_color || "inherit" }}>
+                          {u.badge_icon ? `${u.badge_icon} ` : ""}
+                          {u.display_name || u.email || "User"}
+                        </div>
+                        <div style={{ opacity: 0.7, fontSize: 12 }}>
+                          {u.email} {recentMap.get(u.id)?.last_at ? `· активность ${new Date(recentMap.get(u.id).last_at).toLocaleString()}` : ""}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 8 }}>{selectedUserId ? "Сообщения" : "Выбери собеседника"}</div>
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                    {selectedChatMode === "global"
+                      ? "Общий чат"
+                      : (chatUsers.find((u) => u.id === selectedUserId)?.display_name || "Личные сообщения")}
+                  </div>
                   <div style={{ minHeight: 200, display: "grid", gap: 6 }}>
                     {messages.map((m) => (
                       <div key={m.id} style={{ padding: 10, borderRadius: 10, border: "1px solid var(--border)", maxWidth: "85%", justifySelf: m.from_user_id === me?.user?.id ? "end" : "start" }}>
-                        <div style={{ opacity: 0.8, fontSize: 12 }}>{m.from_user_id === me?.user?.id ? "Вы" : "Он/Она"}</div>
-                        <div style={{ marginTop: 4, wordBreak: "break-word" }}>{m.text}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                          <div style={{ opacity: 0.9, fontSize: 12, color: m.sender?.nickname_color || "inherit", fontWeight: 700 }}>
+                            {m.sender?.badge_icon ? `${m.sender.badge_icon} ` : ""}
+                            {m.from_user_id === me?.user?.id ? "Вы" : (m.sender?.display_name || "Пользователь")}
+                          </div>
+                          <div style={{ opacity: 0.6, fontSize: 11 }}>
+                            {new Date(m.created_at).toLocaleString()}{m.updated_at ? " · изменено" : ""}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                          {m.sender?.avatar_url ? (
+                            <img src={m.sender.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border)" }} />
+                          ) : null}
+                          <div style={{ flex: 1 }}>
+                            {editingMessageId === m.id ? (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <textarea value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} style={{ minHeight: 70 }} />
+                                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                  <button onClick={() => { setEditingMessageId(""); setEditingMessageText(""); }}>Отмена</button>
+                                  <button onClick={saveEditedMessage}>Сохранить</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ marginTop: 2, wordBreak: "break-word", opacity: m.is_deleted ? 0.6 : 1 }}>{m.text}</div>
+                            )}
+                          </div>
+                        </div>
+                        {(m.from_user_id === me?.user?.id || me?.user?.role === "admin") && !m.is_deleted && editingMessageId !== m.id ? (
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+                            <button onClick={() => { setEditingMessageId(m.id); setEditingMessageText(m.text); }}>Редактировать</button>
+                            <button onClick={() => deleteMessage(m.id)}>Удалить</button>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
+                  {messages.length === 0 ? <div style={{ opacity: 0.75 }}>Сообщений пока нет.</div> : null}
                   <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-                    <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder="Напиши сообщение…" style={{ flex: 1 }} disabled={!selectedUserId}
+                    <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={selectedChatMode === "global" ? "Напиши сообщение в общий чат…" : "Напиши личное сообщение…"} style={{ flex: 1 }} disabled={selectedChatMode === "direct" && !selectedUserId}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} />
-                    <button onClick={sendMessage} disabled={!selectedUserId || !chatText.trim()}>Send</button>
+                    <button onClick={sendMessage} disabled={(selectedChatMode === "direct" && !selectedUserId) || !chatText.trim()}>Send</button>
                   </div>
                 </div>
               </div>
