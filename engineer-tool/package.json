@@ -2,10 +2,10 @@
   "name": "engineer-tool-monolith",
   "private": true,
   "scripts": {
-    "install:all": "npm --prefix server install && npm --prefix client install",
-    "build": "npm --prefix client run build",
-    "start": "npm --prefix server start",
-    "dev": "npm --prefix server run dev"
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev"
   },
   "engines": {
     "node": ">=20 <23"
