@@ -37,6 +37,7 @@ async function migrate(p) {
       first_name TEXT,
       last_name TEXT,
       role TEXT NOT NULL DEFAULT 'engineer',
+      role_label TEXT,
       avatar_url TEXT,
       can_edit_wiki BOOLEAN NOT NULL DEFAULT FALSE,
       can_delete_wiki BOOLEAN NOT NULL DEFAULT FALSE,
@@ -47,6 +48,7 @@ async function migrate(p) {
       created_at TEXT NOT NULL
     );
   `);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role_label TEXT;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_edit_wiki BOOLEAN NOT NULL DEFAULT FALSE;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_delete_wiki BOOLEAN NOT NULL DEFAULT FALSE;`);

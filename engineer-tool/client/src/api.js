@@ -64,6 +64,7 @@ export const UsersAPI = {
   updateAvatar: (avatar_url) => request("PUT", "/api/users/me/avatar", { avatar_url }),
   customize: (payload) => request("POST", "/api/users/me/customize", payload),
   updatePermissions: (id, payload) => request("PUT", `/api/users/${id}/permissions`, payload),
+  updateAdminProfile: (id, payload) => request("PUT", `/api/users/${id}/admin-profile`, payload),
 };
 
 export const CategoriesAPI = {

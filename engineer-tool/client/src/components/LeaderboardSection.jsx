@@ -28,7 +28,7 @@ function UserBadge({ user }) {
           {user.badge_icon ? `${user.badge_icon} ` : ""}
           {user.display_name}
         </div>
-        <div style={{ opacity: 0.75, fontSize: 13 }}>{user.role}</div>
+        <div style={{ opacity: 0.9, fontSize: 13, color: user.role_color || "#94a3b8" }}>{user.display_role || user.role}</div>
       </div>
     </div>
   );

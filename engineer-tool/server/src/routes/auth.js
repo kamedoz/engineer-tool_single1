@@ -50,11 +50,11 @@ async function handleRegister(req, res) {
 
     await db.query(
       `INSERT INTO users (
-        id,email,password_hash,first_name,last_name,role,
+        id,email,password_hash,first_name,last_name,role,role_label,
         can_edit_wiki,can_delete_wiki,experience,spent_experience,created_at
       )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id, email, passwordHash, first_name, last_name, role, false, false, 0, 0, now]
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [id, email, passwordHash, first_name, last_name, role, "Engineer", false, false, 0, 0, now]
     );
 
     const token = signToken({ id, email, role });
@@ -67,6 +67,7 @@ async function handleRegister(req, res) {
         first_name,
         last_name,
         role,
+        role_label: "Engineer",
         can_edit_wiki: false,
         can_delete_wiki: false,
         experience: 0,

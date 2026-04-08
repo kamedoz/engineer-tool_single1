@@ -27,6 +27,12 @@ const permissionSchema = z.object({
   can_delete_wiki: z.boolean(),
 });
 
+const adminProfileSchema = z.object({
+  first_name: z.string().trim().min(1),
+  last_name: z.string().trim().min(1),
+  role_label: z.string().trim().min(1).max(60),
+});
+
 async function getCurrentUser(db, userId) {
   const q = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
   return q.rows?.[0] || null;
@@ -122,7 +128,7 @@ r.get("/leaderboard", async (_req, res) => {
   const db = getDb();
   try {
     const q = await db.query(
-      `SELECT id,email,first_name,last_name,role,avatar_url,can_edit_wiki,can_delete_wiki,
+      `SELECT id,email,first_name,last_name,role,role_label,avatar_url,can_edit_wiki,can_delete_wiki,
               experience,spent_experience,nickname_color,badge_icon,created_at
        FROM users
        ORDER BY experience DESC, created_at ASC`
@@ -138,7 +144,7 @@ r.get("/", async (_req, res) => {
   const db = getDb();
   try {
     const q = await db.query(
-      `SELECT id,email,first_name,last_name,role,avatar_url,can_edit_wiki,can_delete_wiki,
+      `SELECT id,email,first_name,last_name,role,role_label,avatar_url,can_edit_wiki,can_delete_wiki,
               experience,spent_experience,nickname_color,badge_icon,created_at
        FROM users
        ORDER BY created_at DESC`
@@ -154,7 +160,7 @@ r.get("/admin/list", requireAdmin, async (_req, res) => {
   const db = getDb();
   try {
     const q = await db.query(
-      `SELECT id,email,first_name,last_name,role,avatar_url,can_edit_wiki,can_delete_wiki,
+      `SELECT id,email,first_name,last_name,role,role_label,avatar_url,can_edit_wiki,can_delete_wiki,
               experience,spent_experience,nickname_color,badge_icon,created_at
        FROM users
        ORDER BY created_at DESC`
@@ -192,6 +198,32 @@ r.put("/:id/permissions", requireAdmin, async (req, res) => {
     return res.json({ user: serializeUser(updated) });
   } catch (e) {
     console.error("USERS /:id/permissions ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+r.put("/:id/admin-profile", requireAdmin, async (req, res) => {
+  const parsed = adminProfileSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid admin profile payload" });
+  }
+
+  const { id } = req.params;
+  const db = getDb();
+
+  try {
+    const existing = await getCurrentUser(db, id);
+    if (!existing) return res.status(404).json({ error: "User not found" });
+
+    await db.query(
+      `UPDATE users SET first_name=$1, last_name=$2, role_label=$3 WHERE id=$4`,
+      [parsed.data.first_name, parsed.data.last_name, parsed.data.role_label, id]
+    );
+
+    const updated = await getCurrentUser(db, id);
+    return res.json({ user: serializeUser(updated) });
+  } catch (e) {
+    console.error("USERS /:id/admin-profile ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });

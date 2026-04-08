@@ -392,7 +392,7 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
     if (!me?.user) return "";
     const u = me.user;
     const name = u.display_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email;
-    return `${u.badge_icon ? `${u.badge_icon} ` : ""}${name} · ${u.role || ""} · lvl ${u.level || 1}`;
+    return `${u.badge_icon ? `${u.badge_icon} ` : ""}${name} · ${u.display_role || u.role || ""} · lvl ${u.level || 1}`;
   }, [me]);
 
   function switchTab(t) { setTab(t); setSidebarOpen(false); }

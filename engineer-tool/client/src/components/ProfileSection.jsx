@@ -107,7 +107,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
             </div>
             <div style={{ opacity: 0.75, marginTop: 4 }}>{user.email}</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 14 }}>
-              <span>Role: {user.role}</span>
+              <span>Role: <span style={{ color: user.role_color || "#94a3b8", fontWeight: 700 }}>{user.display_role || user.role}</span></span>
               <span>Level: {user.level}/100</span>
               <span>Total XP: {user.experience}</span>
               <span>Available XP: {user.available_experience}</span>

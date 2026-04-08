@@ -6,6 +6,8 @@ export default function AdminUsersSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [draft, setDraft] = useState({ first_name: "", last_name: "", role_label: "" });
 
   async function load() {
     setLoading(true);
@@ -42,6 +44,20 @@ export default function AdminUsersSection() {
     }
   }
 
+  async function saveAdminProfile(userId) {
+    setSavingId(userId);
+    setError("");
+    try {
+      const next = await UsersAPI.updateAdminProfile(userId, draft);
+      setUsers((prev) => prev.map((item) => (item.id === userId ? next.user : item)));
+      setEditingId("");
+    } catch (e) {
+      setError(e?.message || "Failed to save profile");
+    } finally {
+      setSavingId("");
+    }
+  }
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -65,11 +81,23 @@ export default function AdminUsersSection() {
                   </div>
                   <div style={{ opacity: 0.75, fontSize: 13 }}>{user.email}</div>
                   <div style={{ opacity: 0.75, fontSize: 13, marginTop: 4 }}>
-                    Role: {user.role} | XP: {user.experience} | Level: {user.level}
+                    Role: <span style={{ color: user.role_color || "#94a3b8", fontWeight: 700 }}>{user.display_role || user.role}</span> | XP: {user.experience} | Level: {user.level}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <button
+                    onClick={() => {
+                      setEditingId(editingId === user.id ? "" : user.id);
+                      setDraft({
+                        first_name: user.first_name || "",
+                        last_name: user.last_name || "",
+                        role_label: user.display_role || user.role || "",
+                      });
+                    }}
+                  >
+                    {editingId === user.id ? "Close" : "Edit name/role"}
+                  </button>
                   <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <input
                       type="checkbox"
@@ -100,6 +128,34 @@ export default function AdminUsersSection() {
                   </label>
                 </div>
               </div>
+
+              {editingId === user.id ? (
+                <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
+                    <input
+                      value={draft.first_name}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, first_name: e.target.value }))}
+                      placeholder="First name"
+                    />
+                    <input
+                      value={draft.last_name}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, last_name: e.target.value }))}
+                      placeholder="Last name"
+                    />
+                    <input
+                      value={draft.role_label}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, role_label: e.target.value }))}
+                      placeholder="Role label"
+                    />
+                    <button onClick={() => saveAdminProfile(user.id)} disabled={savingId === user.id}>
+                      Save
+                    </button>
+                  </div>
+                  <div style={{ opacity: 0.7, fontSize: 12 }}>
+                    This changes the displayed role name and the user's visible first/last name. Admin permissions stay tied to the internal admin role.
+                  </div>
+                </div>
+              ) : null}
             </div>
           );
         })}
