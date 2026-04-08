@@ -1,13 +1,14 @@
 {
   "name": "engineer-tool-monolith",
   "private": true,
+  "packageManager": "npm@10",
   "scripts": {
-    "install:all": "npm --prefix server install && npm --prefix client install",
+    "install:all": "npm --prefix server install --no-audit --no-fund && npm --prefix client install --no-audit --no-fund",
     "build": "npm --prefix client run build",
     "start": "npm --prefix server start",
     "dev": "npm --prefix server run dev"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   }
 }
