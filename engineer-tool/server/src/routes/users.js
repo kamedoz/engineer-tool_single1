@@ -228,4 +228,30 @@ r.put("/:id/admin-profile", requireAdmin, async (req, res) => {
   }
 });
 
+r.delete("/:id", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const db = getDb();
+
+  try {
+    if (req.user.id === id) {
+      return res.status(400).json({ error: "Admin cannot delete own account" });
+    }
+
+    const existing = await getCurrentUser(db, id);
+    if (!existing) return res.status(404).json({ error: "User not found" });
+
+    await db.query(`UPDATE categories SET owner_user_id=NULL WHERE owner_user_id=$1`, [id]);
+    await db.query(`UPDATE wiki_articles SET created_by_user_id=NULL WHERE created_by_user_id=$1`, [id]);
+    await db.query(`UPDATE tickets SET engineer_user_id=NULL WHERE engineer_user_id=$1`, [id]);
+    await db.query(`UPDATE tickets SET created_by_user_id=NULL WHERE created_by_user_id=$1`, [id]);
+    await db.query(`DELETE FROM chat_messages WHERE from_user_id=$1 OR to_user_id=$1`, [id]);
+    await db.query(`DELETE FROM users WHERE id=$1`, [id]);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("USERS DELETE ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
 export default r;

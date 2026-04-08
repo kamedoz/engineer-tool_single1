@@ -58,6 +58,22 @@ export default function AdminUsersSection() {
     }
   }
 
+  async function deleteUser(user) {
+    // eslint-disable-next-line no-restricted-globals
+    if (!confirm(`Delete user ${user.display_name || user.email}?`)) return;
+    setSavingId(user.id);
+    setError("");
+    try {
+      await UsersAPI.remove(user.id);
+      setUsers((prev) => prev.filter((item) => item.id !== user.id));
+      if (editingId === user.id) setEditingId("");
+    } catch (e) {
+      setError(e?.message || "Failed to delete user");
+    } finally {
+      setSavingId("");
+    }
+  }
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -98,6 +114,15 @@ export default function AdminUsersSection() {
                   >
                     {editingId === user.id ? "Close" : "Edit name/role"}
                   </button>
+                  {user.role !== "admin" ? (
+                    <button
+                      onClick={() => deleteUser(user)}
+                      disabled={savingId === user.id}
+                      style={{ background: "rgba(184,74,90,.18)", borderColor: "rgba(184,74,90,.35)" }}
+                    >
+                      Delete user
+                    </button>
+                  ) : null}
                   <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <input
                       type="checkbox"

@@ -65,6 +65,7 @@ export const UsersAPI = {
   customize: (payload) => request("POST", "/api/users/me/customize", payload),
   updatePermissions: (id, payload) => request("PUT", `/api/users/${id}/permissions`, payload),
   updateAdminProfile: (id, payload) => request("PUT", `/api/users/${id}/admin-profile`, payload),
+  remove: (id) => request("DELETE", `/api/users/${id}`),
 };
 
 export const CategoriesAPI = {
