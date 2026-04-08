@@ -6,6 +6,7 @@ import {
   UsersAPI,
   ChatAPI,
 } from "./api.js";
+import WikiSection from "./components/WikiSection.jsx";
 
 /* ── helpers ── */
 function fmtISODateInput(value) {
@@ -544,7 +545,7 @@ export default function Workspace({ me, onLogout }) {
     });
   }, [issues, issueSearch, issueCategoryFilter]);
 
-  const tabLabels = { tickets: "Заявки", kb: "База проблем", chat: "Чат" };
+  const tabLabels = { tickets: "Заявки", kb: "База проблем", chat: "Чат", wiki: "Библиотека знаний" };
 
   /* ── Render ── */
   return (
@@ -581,6 +582,7 @@ export default function Workspace({ me, onLogout }) {
             <button onClick={() => switchTab("tickets")}>Заявки</button>
             <button onClick={() => switchTab("kb")}>Решения / База проблем</button>
             <button onClick={() => { switchTab("chat"); refreshChatThreads(); }}>Чат</button>
+            <button onClick={() => switchTab("wiki")}>📚 Библиотека знаний</button>
             <button onClick={onLogout}>Выйти</button>
           </div>
 
@@ -734,6 +736,9 @@ export default function Workspace({ me, onLogout }) {
               </div>
             </div>
           )}
+
+          {/* ── WIKI ── */}
+          {tab === "wiki" && <WikiSection />}
 
           {/* ── CHAT ── */}
           {tab === "chat" && (
