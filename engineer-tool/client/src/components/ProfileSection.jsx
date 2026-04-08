@@ -2,16 +2,28 @@ import React, { useRef, useState } from "react";
 import { UsersAPI } from "../api.js";
 
 const COLOR_OPTIONS = [
+  "#ffffff",
   "#e5e7eb",
   "#60a5fa",
+  "#38bdf8",
+  "#22d3ee",
   "#34d399",
+  "#10b981",
+  "#84cc16",
   "#f59e0b",
+  "#fbbf24",
+  "#fb7185",
   "#f472b6",
+  "#ec4899",
   "#a78bfa",
+  "#8b5cf6",
   "#f87171",
+  "#ef4444",
+  "#f97316",
 ];
 
-const BADGE_OPTIONS = ["", "★", "⚙", "🛠", "📘", "🚀"];
+const BADGE_OPTIONS = ["", "★", "⚙", "🛠", "📘", "🚀", "🔥", "💡", "🧠", "🧩", "🛰", "🎯", "🏆"];
+const ADMIN_BADGE_OPTIONS = ["👑", "🛡", "⚡", "🔱", "☄"];
 
 function toBase64(file) {
   return new Promise((resolve, reject) => {
@@ -31,6 +43,8 @@ export default function ProfileSection({ me, onMeRefresh }) {
   const inputRef = useRef(null);
 
   if (!user) return null;
+
+  const visibleBadges = user.role === "admin" ? [...BADGE_OPTIONS, ...ADMIN_BADGE_OPTIONS] : BADGE_OPTIONS;
 
   async function handleAvatarChange(file) {
     if (!file) return;
@@ -107,7 +121,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
             </div>
             <div style={{ opacity: 0.75, marginTop: 4 }}>{user.email}</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 14 }}>
-              <span>Role: <span style={{ color: user.role_color || "#94a3b8", fontWeight: 700 }}>{user.display_role || user.role}</span></span>
+              <span>Role: <span style={{ color: user.role_color || "#ffffff", fontWeight: 700 }}>{user.display_role || user.role}</span></span>
               <span>Level: {user.level}/100</span>
               <span>Total XP: {user.experience}</span>
               <span>Available XP: {user.available_experience}</span>
@@ -149,7 +163,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
           <div>
             <div style={{ fontWeight: 700 }}>Customization shop</div>
             <div style={{ opacity: 0.75, fontSize: 13, marginTop: 4 }}>
-              Nickname color costs 20 XP. Badge costs 100 XP. Admin receives both for free.
+              Nickname color costs 20 XP. Badge costs 100 XP. Admin receives both for free and has exclusive badges.
             </div>
           </div>
 
@@ -177,7 +191,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
           <div>
             <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>Badge icon</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {BADGE_OPTIONS.map((badge) => (
+              {visibleBadges.map((badge) => (
                 <button
                   key={badge || "none"}
                   onClick={() => setBadgeIcon(badge)}

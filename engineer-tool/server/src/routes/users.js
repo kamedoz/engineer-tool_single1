@@ -5,6 +5,7 @@ import { requireAdmin } from "../middleware/auth.js";
 import {
   ALLOWED_BADGE_ICONS,
   ALLOWED_NICKNAME_COLORS,
+  ADMIN_BADGE_ICONS,
   BADGE_CHANGE_COST,
   COLOR_CHANGE_COST,
   getAvailableExperience,
@@ -94,6 +95,9 @@ r.post("/me/customize", async (req, res) => {
     }
     if (!ALLOWED_BADGE_ICONS.includes(badgeIcon)) {
       return res.status(400).json({ error: "Unsupported badge icon" });
+    }
+    if (user.role !== "admin" && ADMIN_BADGE_ICONS.includes(badgeIcon)) {
+      return res.status(403).json({ error: "This badge is admin-only" });
     }
 
     let extraCost = 0;

@@ -7,23 +7,50 @@ export const BADGE_CHANGE_COST = 100;
 export const ALLOWED_NICKNAME_COLORS = [
   "",
   "#e5e7eb",
+  "#ffffff",
   "#60a5fa",
+  "#38bdf8",
+  "#22d3ee",
   "#34d399",
+  "#10b981",
+  "#84cc16",
   "#f59e0b",
+  "#fbbf24",
+  "#fb7185",
   "#f472b6",
+  "#ec4899",
   "#a78bfa",
+  "#8b5cf6",
   "#f87171",
   "#ef4444",
+  "#f97316",
 ];
 
-export const ALLOWED_BADGE_ICONS = [
+export const BASE_BADGE_ICONS = [
   "",
   "★",
   "⚙",
   "🛠",
   "📘",
   "🚀",
+  "🔥",
+  "💡",
+  "🧠",
+  "🧩",
+  "🛰",
+  "🎯",
+  "🏆",
 ];
+
+export const ADMIN_BADGE_ICONS = [
+  "👑",
+  "🛡",
+  "⚡",
+  "🔱",
+  "☄",
+];
+
+export const ALLOWED_BADGE_ICONS = [...BASE_BADGE_ICONS, ...ADMIN_BADGE_ICONS];
 
 export function getUserLevel(experience = 0) {
   const safeXp = Math.max(0, Number(experience) || 0);
@@ -48,17 +75,8 @@ export function getDisplayRole(user) {
 
 export function getRoleColor(roleLabel = "") {
   const value = String(roleLabel || "").trim().toLowerCase();
-  if (!value) return "#94a3b8";
   if (value.includes("admin")) return "#ef4444";
-  if (value.includes("manager")) return "#f59e0b";
-  if (value.includes("lead")) return "#a78bfa";
-  if (value.includes("support")) return "#34d399";
-  if (value.includes("engineer")) return "#60a5fa";
-
-  const palette = ["#60a5fa", "#34d399", "#f59e0b", "#f472b6", "#a78bfa", "#ef4444"];
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  return palette[hash % palette.length];
+  return "#ffffff";
 }
 
 export function serializeUser(user) {
