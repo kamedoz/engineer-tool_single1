@@ -109,9 +109,9 @@ export const ChatAPI = {
   listThreads: () => request("GET", "/api/chat/threads"),
   listGlobalMessages: () => request("GET", "/api/chat/global"),
   listMessages: (otherUserId) => request("GET", `/api/chat/${otherUserId}`),
-  sendGlobal: (text) => request("POST", "/api/chat/global", { text }),
-  send: (otherUserId, text) =>
-    request("POST", `/api/chat/${otherUserId}`, { text }),
+  sendGlobal: (payload) => request("POST", "/api/chat/global", payload),
+  send: (otherUserId, payload) =>
+    request("POST", `/api/chat/${otherUserId}`, payload),
   updateMessage: (messageId, text) => request("PUT", `/api/chat/messages/${messageId}`, { text }),
   removeMessage: (messageId) => request("DELETE", `/api/chat/messages/${messageId}`),
 };
@@ -129,4 +129,8 @@ export const WikiAPI = {
   create: (payload) => request("POST", "/api/wiki", payload),
   update: (id, payload) => request("PUT", `/api/wiki/${id}`, payload),
   remove: (id) => request("DELETE", `/api/wiki/${id}`),
+  comments: (id) => request("GET", `/api/wiki/${id}/comments`),
+  addComment: (id, body) => request("POST", `/api/wiki/${id}/comments`, { body }),
+  updateComment: (articleId, commentId, body) => request("PUT", `/api/wiki/${articleId}/comments/${commentId}`, { body }),
+  removeComment: (articleId, commentId) => request("DELETE", `/api/wiki/${articleId}/comments/${commentId}`),
 };

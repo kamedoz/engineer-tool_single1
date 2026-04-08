@@ -15,6 +15,14 @@ function mapMessage(row) {
     is_deleted: Boolean(row.deleted_at),
     updated_at: row.updated_at,
     created_at: row.created_at,
+    quoted_article: row.quoted_article_id
+      ? {
+          id: row.quoted_article_id,
+          title: row.quoted_article_title,
+          category: row.quoted_article_category,
+          excerpt: row.quoted_article_excerpt,
+        }
+      : null,
     sender: {
       id: row.sender_id,
       display_name: getDisplayName(row),
@@ -35,7 +43,9 @@ async function getActor(db, userId) {
 function baseMessageQuery() {
   return `
     SELECT
-      m.id, m.from_user_id, m.to_user_id, m.channel, m.text, m.updated_at, m.deleted_at, m.created_at,
+      m.id, m.from_user_id, m.to_user_id, m.channel, m.text,
+      m.quoted_article_id, m.quoted_article_title, m.quoted_article_category, m.quoted_article_excerpt,
+      m.updated_at, m.deleted_at, m.created_at,
       u.id AS sender_id, u.first_name, u.last_name, u.email, u.avatar_url, u.nickname_color,
       u.badge_icon, u.experience, u.role AS sender_role
     FROM chat_messages m
@@ -112,9 +122,20 @@ router.post("/global", async (req, res) => {
   const db = getDb();
   const me = req.user?.id;
   const msgText = String(req.body?.text || "").trim();
+  const quotedArticleId = String(req.body?.quoted_article_id || "").trim();
 
   if (!me) return res.status(401).json({ error: "Missing token" });
-  if (!msgText) return res.status(400).json({ error: "Empty message" });
+  if (!msgText && !quotedArticleId) return res.status(400).json({ error: "Empty message" });
+
+  let quotedArticle = null;
+  if (quotedArticleId) {
+    const q = await db.query(
+      `SELECT id, title, category, body FROM wiki_articles WHERE id=$1`,
+      [quotedArticleId]
+    );
+    quotedArticle = q.rows?.[0] || null;
+    if (!quotedArticle) return res.status(404).json({ error: "Quoted article not found" });
+  }
 
   const msg = {
     id: uid("m_"),
@@ -122,15 +143,27 @@ router.post("/global", async (req, res) => {
     to_user_id: null,
     channel: "global",
     text: msgText,
+    quoted_article_id: quotedArticle?.id || null,
+    quoted_article_title: quotedArticle?.title || null,
+    quoted_article_category: quotedArticle?.category || null,
+    quoted_article_excerpt: quotedArticle?.body ? String(quotedArticle.body).slice(0, 220) : null,
     updated_at: null,
     created_at: new Date().toISOString(),
   };
 
   try {
     await db.query(
-      `INSERT INTO chat_messages (id, from_user_id, to_user_id, channel, text, updated_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [msg.id, msg.from_user_id, msg.to_user_id, msg.channel, msg.text, msg.updated_at, msg.created_at]
+      `INSERT INTO chat_messages (
+        id, from_user_id, to_user_id, channel, text,
+        quoted_article_id, quoted_article_title, quoted_article_category, quoted_article_excerpt,
+        updated_at, created_at
+      )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        msg.id, msg.from_user_id, msg.to_user_id, msg.channel, msg.text,
+        msg.quoted_article_id, msg.quoted_article_title, msg.quoted_article_category, msg.quoted_article_excerpt,
+        msg.updated_at, msg.created_at,
+      ]
     );
     const created = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [msg.id]);
     return res.json({ message: mapMessage(created.rows?.[0]) });
@@ -229,10 +262,21 @@ router.post("/:otherUserId", async (req, res) => {
   const me = req.user?.id;
   const other = req.params.otherUserId;
   const msgText = String(req.body?.text || "").trim();
+  const quotedArticleId = String(req.body?.quoted_article_id || "").trim();
 
   if (!me) return res.status(401).json({ error: "Missing token" });
   if (!other) return res.status(400).json({ error: "Missing otherUserId" });
-  if (!msgText) return res.status(400).json({ error: "Empty message" });
+  if (!msgText && !quotedArticleId) return res.status(400).json({ error: "Empty message" });
+
+  let quotedArticle = null;
+  if (quotedArticleId) {
+    const q = await db.query(
+      `SELECT id, title, category, body FROM wiki_articles WHERE id=$1`,
+      [quotedArticleId]
+    );
+    quotedArticle = q.rows?.[0] || null;
+    if (!quotedArticle) return res.status(404).json({ error: "Quoted article not found" });
+  }
 
   const msg = {
     id: uid("m_"),
@@ -240,15 +284,27 @@ router.post("/:otherUserId", async (req, res) => {
     to_user_id: other,
     channel: "direct",
     text: msgText,
+    quoted_article_id: quotedArticle?.id || null,
+    quoted_article_title: quotedArticle?.title || null,
+    quoted_article_category: quotedArticle?.category || null,
+    quoted_article_excerpt: quotedArticle?.body ? String(quotedArticle.body).slice(0, 220) : null,
     updated_at: null,
     created_at: new Date().toISOString(),
   };
 
   try {
     await db.query(
-      `INSERT INTO chat_messages (id, from_user_id, to_user_id, channel, text, updated_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [msg.id, msg.from_user_id, msg.to_user_id, msg.channel, msg.text, msg.updated_at, msg.created_at]
+      `INSERT INTO chat_messages (
+        id, from_user_id, to_user_id, channel, text,
+        quoted_article_id, quoted_article_title, quoted_article_category, quoted_article_excerpt,
+        updated_at, created_at
+      )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        msg.id, msg.from_user_id, msg.to_user_id, msg.channel, msg.text,
+        msg.quoted_article_id, msg.quoted_article_title, msg.quoted_article_category, msg.quoted_article_excerpt,
+        msg.updated_at, msg.created_at,
+      ]
     );
     const created = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [msg.id]);
     return res.json({ message: mapMessage(created.rows?.[0]) });

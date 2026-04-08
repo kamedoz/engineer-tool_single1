@@ -43,6 +43,30 @@ function normalizeArticle(row) {
   };
 }
 
+function normalizeComment(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    article_id: row.article_id,
+    user_id: row.user_id,
+    body: row.deleted_at ? "[comment deleted]" : row.body,
+    is_deleted: Boolean(row.deleted_at),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    author: row.comment_author_id
+      ? {
+          id: row.comment_author_id,
+          display_name: getDisplayName(row),
+          avatar_url: row.avatar_url || "",
+          nickname_color: row.nickname_color || "",
+          badge_icon: row.badge_icon || "",
+          level: getUserLevel(row.experience),
+          role: row.comment_author_role || "",
+        }
+      : null,
+  };
+}
+
 async function getActor(db, userId) {
   if (!userId) return null;
   const q = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
@@ -65,6 +89,17 @@ function baseArticleQuery() {
       u.badge_icon, u.experience, u.role AS author_role
     FROM wiki_articles w
     LEFT JOIN users u ON u.id = w.created_by_user_id
+  `;
+}
+
+function baseCommentQuery() {
+  return `
+    SELECT
+      c.id, c.article_id, c.user_id, c.body, c.created_at, c.updated_at, c.deleted_at,
+      u.id AS comment_author_id, u.first_name, u.last_name, u.email, u.avatar_url, u.nickname_color,
+      u.badge_icon, u.experience, u.role AS comment_author_role
+    FROM wiki_comments c
+    LEFT JOIN users u ON u.id = c.user_id
   `;
 }
 
@@ -118,6 +153,94 @@ router.get("/:id", async (req, res) => {
     return res.json(normalizeArticle(result.rows[0]));
   } catch (e) {
     console.error("WIKI GET BY ID ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.get("/:id/comments", async (req, res) => {
+  const db = getDb();
+  try {
+    const result = await db.query(
+      `${baseCommentQuery()} WHERE c.article_id=$1 ORDER BY c.created_at ASC`,
+      [req.params.id]
+    );
+    return res.json((result.rows || []).map(normalizeComment));
+  } catch (e) {
+    console.error("WIKI COMMENTS GET ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/:id/comments", async (req, res) => {
+  const db = getDb();
+  const body = String(req.body?.body || "").trim();
+  if (!body) return res.status(400).json({ error: "Comment body is required" });
+
+  try {
+    const article = await db.query(`SELECT id FROM wiki_articles WHERE id=$1`, [req.params.id]);
+    if (!article.rows?.[0]) return res.status(404).json({ error: "Article not found" });
+
+    const now = new Date().toISOString();
+    const id = uid("wc_");
+    await db.query(
+      `INSERT INTO wiki_comments (id, article_id, user_id, body, created_at, updated_at, deleted_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, req.params.id, req.user.id, body, now, null, null]
+    );
+
+    const created = await db.query(`${baseCommentQuery()} WHERE c.id=$1`, [id]);
+    return res.json(normalizeComment(created.rows?.[0]));
+  } catch (e) {
+    console.error("WIKI COMMENTS POST ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.put("/:articleId/comments/:commentId", async (req, res) => {
+  const db = getDb();
+  const body = String(req.body?.body || "").trim();
+  if (!body) return res.status(400).json({ error: "Comment body is required" });
+
+  try {
+    const actor = await getActor(db, req.user?.id);
+    const current = await db.query(`SELECT * FROM wiki_comments WHERE id=$1 AND article_id=$2`, [req.params.commentId, req.params.articleId]);
+    const comment = current.rows?.[0];
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    if (comment.user_id !== req.user.id && actor?.role !== "admin") {
+      return res.status(403).json({ error: "Cannot edit this comment" });
+    }
+
+    await db.query(`UPDATE wiki_comments SET body=$1, updated_at=$2, deleted_at=NULL WHERE id=$3`, [
+      body,
+      new Date().toISOString(),
+      req.params.commentId,
+    ]);
+    const updated = await db.query(`${baseCommentQuery()} WHERE c.id=$1`, [req.params.commentId]);
+    return res.json(normalizeComment(updated.rows?.[0]));
+  } catch (e) {
+    console.error("WIKI COMMENTS PUT ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.delete("/:articleId/comments/:commentId", async (req, res) => {
+  const db = getDb();
+  try {
+    const actor = await getActor(db, req.user?.id);
+    const current = await db.query(`SELECT * FROM wiki_comments WHERE id=$1 AND article_id=$2`, [req.params.commentId, req.params.articleId]);
+    const comment = current.rows?.[0];
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    if (comment.user_id !== req.user.id && actor?.role !== "admin") {
+      return res.status(403).json({ error: "Cannot delete this comment" });
+    }
+
+    await db.query(`UPDATE wiki_comments SET deleted_at=$1 WHERE id=$2`, [
+      new Date().toISOString(),
+      req.params.commentId,
+    ]);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("WIKI COMMENTS DELETE ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
@@ -208,6 +331,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(403).json({ error: "You do not have delete permission" });
     }
 
+    await db.query(`DELETE FROM wiki_comments WHERE article_id=$1`, [req.params.id]);
     const d = await db.query(`DELETE FROM wiki_articles WHERE id=$1`, [req.params.id]);
     if (!d.rowCount) return res.status(404).json({ error: "not found" });
     return res.json({ ok: true });

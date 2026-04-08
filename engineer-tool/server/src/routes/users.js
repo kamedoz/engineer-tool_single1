@@ -246,6 +246,7 @@ r.delete("/:id", requireAdmin, async (req, res) => {
 
     await db.query(`UPDATE categories SET owner_user_id=NULL WHERE owner_user_id=$1`, [id]);
     await db.query(`UPDATE wiki_articles SET created_by_user_id=NULL WHERE created_by_user_id=$1`, [id]);
+    await db.query(`DELETE FROM wiki_comments WHERE user_id=$1`, [id]);
     await db.query(`UPDATE tickets SET engineer_user_id=NULL WHERE engineer_user_id=$1`, [id]);
     await db.query(`UPDATE tickets SET created_by_user_id=NULL WHERE created_by_user_id=$1`, [id]);
     await db.query(`DELETE FROM chat_messages WHERE from_user_id=$1 OR to_user_id=$1`, [id]);

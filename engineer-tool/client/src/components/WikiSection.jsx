@@ -57,22 +57,10 @@ function ImageUploader({ images, onChange }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {images.map((src, idx) => (
             <div key={idx} style={{ position: "relative" }}>
-              <img
-                src={src}
-                alt=""
-                style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)" }}
-              />
+              <img src={src} alt="" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)" }} />
               <button
                 onClick={() => onChange(images.filter((_, imageIdx) => imageIdx !== idx))}
-                style={{
-                  position: "absolute",
-                  top: -6,
-                  right: -6,
-                  width: 22,
-                  height: 22,
-                  borderRadius: "50%",
-                  padding: 0,
-                }}
+                style={{ position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", padding: 0 }}
               >
                 x
               </button>
@@ -111,30 +99,14 @@ function ArticleForm({ initial, categories, onSave, onCancel }) {
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Article title" />
-      <input
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        placeholder="Category"
-        list="wiki-categories"
-      />
-      <datalist id="wiki-categories">
-        {categories.map((item) => (
-          <option key={item} value={item} />
-        ))}
-      </datalist>
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Write article details here..."
-        style={{ minHeight: 180 }}
-      />
+      <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" list="wiki-categories" />
+      <datalist id="wiki-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist>
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write article details here..." style={{ minHeight: 180 }} />
       <ImageUploader images={images} onChange={setImages} />
       {error ? <div style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</div> : null}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button onClick={onCancel}>Cancel</button>
-        <button onClick={submit} disabled={saving}>
-          {saving ? "Saving..." : "Save article"}
-        </button>
+        <button onClick={submit} disabled={saving}>{saving ? "Saving..." : "Save article"}</button>
       </div>
     </div>
   );
@@ -142,28 +114,10 @@ function ArticleForm({ initial, categories, onSave, onCancel }) {
 
 function AuthorBadge({ author }) {
   if (!author) return <span>Unknown author</span>;
-
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          overflow: "hidden",
-          border: "1px solid var(--border)",
-          background: "var(--card2)",
-          display: "grid",
-          placeItems: "center",
-          fontSize: 12,
-          fontWeight: 700,
-        }}
-      >
-        {author.avatar_url ? (
-          <img src={author.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <span>{author.display_name?.slice(0, 1)?.toUpperCase() || "U"}</span>
-        )}
+      <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", background: "var(--card2)", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700 }}>
+        {author.avatar_url ? <img src={author.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span>{author.display_name?.slice(0, 1)?.toUpperCase() || "U"}</span>}
       </div>
       <span style={{ color: author.nickname_color || "#e5e7eb", fontWeight: 700 }}>
         {author.badge_icon ? `${author.badge_icon} ` : ""}
@@ -174,27 +128,123 @@ function AuthorBadge({ author }) {
   );
 }
 
-function ArticleCard({ article, canEdit, canDelete, onEdit, onDelete }) {
+function CommentComposer({ onSubmit, initial = "", onCancel, submitLabel = "Save" }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <textarea value={value} onChange={(e) => setValue(e.target.value)} style={{ minHeight: 70 }} placeholder="Write a comment..." />
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        {onCancel ? <button onClick={onCancel}>Cancel</button> : null}
+        <button onClick={() => onSubmit(value)}>{submitLabel}</button>
+      </div>
+    </div>
+  );
+}
+
+function CommentsSection({ article, me, onError }) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState("");
+
+  async function loadComments() {
+    setLoading(true);
+    try {
+      const data = await WikiAPI.comments(article.id);
+      setComments(data || []);
+    } catch (e) {
+      onError?.(e?.message || "Failed to load comments");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadComments();
+  }, [article.id]);
+
+  async function addComment(body) {
+    const text = String(body || "").trim();
+    if (!text) return;
+    try {
+      const created = await WikiAPI.addComment(article.id, text);
+      setComments((prev) => [...prev, created]);
+    } catch (e) {
+      onError?.(e?.message || "Failed to add comment");
+    }
+  }
+
+  async function saveComment(commentId, body) {
+    const text = String(body || "").trim();
+    if (!text) return;
+    try {
+      const updated = await WikiAPI.updateComment(article.id, commentId, text);
+      setComments((prev) => prev.map((item) => (item.id === commentId ? updated : item)));
+      setEditingId("");
+    } catch (e) {
+      onError?.(e?.message || "Failed to update comment");
+    }
+  }
+
+  async function deleteComment(commentId) {
+    if (!confirm("Delete this comment?")) return;
+    try {
+      await WikiAPI.removeComment(article.id, commentId);
+      setComments((prev) => prev.map((item) => (item.id === commentId ? { ...item, body: "[comment deleted]", is_deleted: true } : item)));
+    } catch (e) {
+      onError?.(e?.message || "Failed to delete comment");
+    }
+  }
+
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, display: "grid", gap: 10 }}>
+      <div style={{ fontWeight: 700 }}>Comments</div>
+      <CommentComposer onSubmit={addComment} submitLabel="Add comment" />
+      {loading ? <div style={{ opacity: 0.7 }}>Loading comments...</div> : null}
+      {comments.map((comment) => {
+        const canManage = comment.user_id === me?.user?.id || me?.user?.role === "admin";
+        return (
+          <div key={comment.id} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <AuthorBadge author={comment.author} />
+              <div style={{ opacity: 0.65, fontSize: 12 }}>
+                {new Date(comment.created_at).toLocaleString()}{comment.updated_at ? " · edited" : ""}
+              </div>
+            </div>
+            {editingId === comment.id ? (
+              <div style={{ marginTop: 8 }}>
+                <CommentComposer
+                  initial={comment.body}
+                  onSubmit={(body) => saveComment(comment.id, body)}
+                  onCancel={() => setEditingId("")}
+                  submitLabel="Save"
+                />
+              </div>
+            ) : (
+              <div style={{ marginTop: 8, whiteSpace: "pre-wrap", opacity: comment.is_deleted ? 0.6 : 1 }}>{comment.body}</div>
+            )}
+            {canManage && !comment.is_deleted && editingId !== comment.id ? (
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+                <button onClick={() => setEditingId(comment.id)}>Edit</button>
+                <button onClick={() => deleteComment(comment.id)}>Delete</button>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuote, onError }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-      <div
-        onClick={() => setExpanded((value) => !value)}
-        style={{ padding: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 12 }}
-      >
+      <div onClick={() => setExpanded((value) => !value)} style={{ padding: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 12 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontWeight: 700, wordBreak: "break-word" }}>{article.title}</div>
           <div style={{ marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span
-              style={{
-                background: "rgba(79,124,255,.18)",
-                borderRadius: 999,
-                padding: "2px 10px",
-                border: "1px solid rgba(79,124,255,.3)",
-                fontSize: 12,
-              }}
-            >
+            <span style={{ background: "rgba(79,124,255,.18)", borderRadius: 999, padding: "2px 10px", border: "1px solid rgba(79,124,255,.3)", fontSize: 12 }}>
               {article.category}
             </span>
             <AuthorBadge author={article.author} />
@@ -205,40 +255,29 @@ function ArticleCard({ article, canEdit, canDelete, onEdit, onDelete }) {
 
       {expanded ? (
         <div style={{ padding: "0 14px 14px", display: "grid", gap: 12 }}>
-          {article.body ? (
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, wordBreak: "break-word" }}>{article.body}</div>
-          ) : null}
-
+          {article.body ? <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, wordBreak: "break-word" }}>{article.body}</div> : null}
           {article.images?.length ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {article.images.map((src, idx) => (
-                <img
-                  key={idx}
-                  src={src}
-                  alt=""
-                  style={{ width: 110, height: 110, objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }}
-                />
+                <img key={idx} src={src} alt="" style={{ width: 110, height: 110, objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }} />
               ))}
             </div>
           ) : null}
 
-          {(canEdit || canDelete) ? (
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              {canEdit ? <button onClick={() => onEdit(article)}>Edit</button> : null}
-              {canDelete ? (
-                <button onClick={() => onDelete(article)} style={{ background: "rgba(184,74,90,.18)", borderColor: "rgba(184,74,90,.35)" }}>
-                  Delete
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button onClick={() => onQuote(article)}>Quote to chat</button>
+            {canEdit ? <button onClick={() => onEdit(article)}>Edit</button> : null}
+            {canDelete ? <button onClick={() => onDelete(article)} style={{ background: "rgba(184,74,90,.18)", borderColor: "rgba(184,74,90,.35)" }}>Delete</button> : null}
+          </div>
+
+          <CommentsSection article={article} me={me} onError={onError} />
         </div>
       ) : null}
     </div>
   );
 }
 
-export default function WikiSection({ me, onMeRefresh }) {
+export default function WikiSection({ me, onMeRefresh, onQuoteArticle }) {
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
@@ -311,12 +350,7 @@ export default function WikiSection({ me, onMeRefresh }) {
           <h2 style={{ margin: 0 }}>{mode === "new" ? "New article" : "Edit article"}</h2>
         </div>
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14 }}>
-          <ArticleForm
-            initial={mode === "new" ? null : mode}
-            categories={categories}
-            onSave={handleSave}
-            onCancel={() => setMode(null)}
-          />
+          <ArticleForm initial={mode === "new" ? null : mode} categories={categories} onSave={handleSave} onCancel={() => setMode(null)} />
         </div>
       </div>
     );
@@ -328,7 +362,7 @@ export default function WikiSection({ me, onMeRefresh }) {
         <div>
           <h2 style={{ margin: 0 }}>Knowledge base</h2>
           <div style={{ opacity: 0.75, fontSize: 13, marginTop: 4 }}>
-            Everyone can add articles. Editing and deleting are restricted by admin permissions.
+            Everyone can add articles. Comment on articles and quote them directly into chat.
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -341,18 +375,9 @@ export default function WikiSection({ me, onMeRefresh }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ minWidth: 150 }}>
             <option value="">All categories</option>
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
+            {categories.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search articles..."
-            style={{ flex: 1, minWidth: 180 }}
-          />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search articles..." style={{ flex: 1, minWidth: 180 }} />
         </div>
       </div>
 
@@ -367,10 +392,13 @@ export default function WikiSection({ me, onMeRefresh }) {
             <ArticleCard
               key={article.id}
               article={article}
+              me={me}
               canEdit={canEdit}
               canDelete={canDelete}
               onEdit={(item) => setMode(item)}
               onDelete={handleDelete}
+              onQuote={onQuoteArticle}
+              onError={setError}
             />
           ))}
         </div>

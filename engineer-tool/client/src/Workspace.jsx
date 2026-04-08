@@ -387,6 +387,7 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
   const [chatText, setChatText] = useState("");
   const [editingMessageId, setEditingMessageId] = useState("");
   const [editingMessageText, setEditingMessageText] = useState("");
+  const [quotedArticle, setQuotedArticle] = useState(null);
 
   const meLabel = useMemo(() => {
     if (!me?.user) return "";
@@ -503,16 +504,17 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
 
   async function sendMessage() {
     const text = chatText.trim();
-    if ((!selectedUserId && selectedChatMode === "direct") || !text) return;
+    if ((!selectedUserId && selectedChatMode === "direct") || (!text && !quotedArticle)) return;
     try {
       if (selectedChatMode === "global") {
-        await ChatAPI.sendGlobal(text);
+        await ChatAPI.sendGlobal({ text, quoted_article_id: quotedArticle?.id || "" });
         await loadMessages("");
       } else {
-        await ChatAPI.send(selectedUserId, text);
+        await ChatAPI.send(selectedUserId, { text, quoted_article_id: quotedArticle?.id || "" });
         await loadMessages(selectedUserId);
       }
       setChatText("");
+      setQuotedArticle(null);
       await refreshChatThreads();
     } catch (e) { setError(e?.message || "HTTP error"); }
   }
@@ -795,7 +797,7 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
           )}
 
           {/* ── WIKI ── */}
-          {tab === "wiki" && <WikiSection me={me} onMeRefresh={onRefreshMe} />}
+          {tab === "wiki" && <WikiSection me={me} onMeRefresh={onRefreshMe} onQuoteArticle={quoteArticleToChat} />}
 
           {tab === "profile" && <ProfileSection me={me} onMeRefresh={onRefreshMe} />}
 
@@ -873,7 +875,18 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
                                 </div>
                               </div>
                             ) : (
-                              <div style={{ marginTop: 2, wordBreak: "break-word", opacity: m.is_deleted ? 0.6 : 1 }}>{m.text}</div>
+                              <div style={{ display: "grid", gap: 6 }}>
+                                {m.quoted_article ? (
+                                  <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 8, background: "rgba(255,255,255,0.03)" }}>
+                                    <div style={{ fontWeight: 700 }}>{m.quoted_article.title}</div>
+                                    <div style={{ opacity: 0.7, fontSize: 12 }}>{m.quoted_article.category}</div>
+                                    {m.quoted_article.excerpt ? (
+                                      <div style={{ marginTop: 4, opacity: 0.85, fontSize: 13, whiteSpace: "pre-wrap" }}>{m.quoted_article.excerpt}</div>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                                {m.text ? <div style={{ marginTop: 2, wordBreak: "break-word", opacity: m.is_deleted ? 0.6 : 1 }}>{m.text}</div> : null}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -887,10 +900,22 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
                     ))}
                   </div>
                   {messages.length === 0 ? <div style={{ opacity: 0.75 }}>Сообщений пока нет.</div> : null}
+                  {quotedArticle ? (
+                    <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 10, marginTop: 10, display: "grid", gap: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>Quoted article</div>
+                          <div style={{ opacity: 0.75, fontSize: 12 }}>{quotedArticle.title} · {quotedArticle.category}</div>
+                        </div>
+                        <button onClick={() => setQuotedArticle(null)}>Remove</button>
+                      </div>
+                      {quotedArticle.excerpt ? <div style={{ opacity: 0.85, fontSize: 13 }}>{quotedArticle.excerpt}</div> : null}
+                    </div>
+                  ) : null}
                   <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
                     <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={selectedChatMode === "global" ? "Напиши сообщение в общий чат…" : "Напиши личное сообщение…"} style={{ flex: 1 }} disabled={selectedChatMode === "direct" && !selectedUserId}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} />
-                    <button onClick={sendMessage} disabled={(selectedChatMode === "direct" && !selectedUserId) || !chatText.trim()}>Send</button>
+                    <button onClick={sendMessage} disabled={(selectedChatMode === "direct" && !selectedUserId) || (!chatText.trim() && !quotedArticle)}>Send</button>
                   </div>
                 </div>
               </div>
@@ -962,3 +987,18 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
     </div>
   );
 }
+  function quoteArticleToChat(article) {
+    setQuotedArticle({
+      id: article.id,
+      title: article.title,
+      category: article.category,
+      excerpt: String(article.body || "").slice(0, 220),
+    });
+    setSelectedChatMode("global");
+    setSelectedUserId("");
+    setEditingMessageId("");
+    setEditingMessageText("");
+    setTab("chat");
+    setSidebarOpen(false);
+    loadMessages("");
+  }

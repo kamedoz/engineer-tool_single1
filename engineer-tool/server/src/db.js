@@ -132,6 +132,10 @@ async function migrate(p) {
       to_user_id TEXT,
       channel TEXT NOT NULL DEFAULT 'direct',
       text TEXT NOT NULL,
+      quoted_article_id TEXT,
+      quoted_article_title TEXT,
+      quoted_article_category TEXT,
+      quoted_article_excerpt TEXT,
       updated_at TEXT,
       deleted_at TEXT,
       created_at TEXT NOT NULL
@@ -139,6 +143,10 @@ async function migrate(p) {
   `);
   await p.query(`ALTER TABLE chat_messages ALTER COLUMN to_user_id DROP NOT NULL;`);
   await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'direct';`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS quoted_article_id TEXT;`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS quoted_article_title TEXT;`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS quoted_article_category TEXT;`);
+  await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS quoted_article_excerpt TEXT;`);
   await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS updated_at TEXT;`);
   await p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_at TEXT;`);
 
@@ -174,6 +182,18 @@ async function migrate(p) {
   `);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_category ON wiki_articles(category);`);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_updated_at ON wiki_articles(updated_at);`);
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS wiki_comments (
+      id TEXT PRIMARY KEY,
+      article_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT,
+      deleted_at TEXT
+    );
+  `);
+  await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_comments_article_id ON wiki_comments(article_id, created_at);`);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_users_experience ON users(experience DESC, created_at ASC);`);
 }
 
