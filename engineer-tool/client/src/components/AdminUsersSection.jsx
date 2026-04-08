@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { UsersAPI } from "../api.js";
 
-export default function AdminUsersSection() {
+export default function AdminUsersSection({ t }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -77,8 +77,8 @@ export default function AdminUsersSection() {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Admin users</h2>
-        <button onClick={load}>Refresh</button>
+        <h2 style={{ margin: 0 }}>{t("users")}</h2>
+        <button onClick={load}>{t("refresh")}</button>
       </div>
 
       {error ? <div style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</div> : null}

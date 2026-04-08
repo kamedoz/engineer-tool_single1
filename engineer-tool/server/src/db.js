@@ -194,6 +194,33 @@ async function migrate(p) {
     );
   `);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_wiki_comments_article_id ON wiki_comments(article_id, created_at);`);
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      entity_type TEXT,
+      entity_id TEXT,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await p.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_created_at ON notifications(user_id, created_at DESC);`);
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_user_id TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      summary TEXT NOT NULL,
+      details TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await p.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);`);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_users_experience ON users(experience DESC, created_at ASC);`);
 }
 

@@ -34,7 +34,7 @@ function UserBadge({ user }) {
   );
 }
 
-export default function LeaderboardSection() {
+export default function LeaderboardSection({ t }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -59,13 +59,13 @@ export default function LeaderboardSection() {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Leaderboard</h2>
-        <button onClick={load}>Refresh</button>
+        <h2 style={{ margin: 0 }}>{t("leaderboard")}</h2>
+        <button onClick={load}>{t("refresh")}</button>
       </div>
 
       <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
         <div style={{ opacity: 0.75, fontSize: 13 }}>
-          Public ranking by total experience. Each article gives 5 XP. Every 20 XP increases level.
+          {t("dashboardIntro")}
         </div>
       </div>
 
@@ -94,7 +94,7 @@ export default function LeaderboardSection() {
             </div>
           </div>
         ))}
-        {!loading && users.length === 0 ? <div style={{ opacity: 0.7 }}>No users yet.</div> : null}
+        {!loading && users.length === 0 ? <div style={{ opacity: 0.7 }}>{t("users")} 0</div> : null}
       </div>
     </div>
   );

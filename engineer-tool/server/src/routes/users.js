@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { getDb } from "../db.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { createAuditLog, createNotification } from "../utils/activity.js";
 import {
   ALLOWED_BADGE_ICONS,
   ALLOWED_NICKNAME_COLORS,
@@ -199,6 +200,22 @@ r.put("/:id/permissions", requireAdmin, async (req, res) => {
     );
 
     const updated = await getCurrentUser(db, id);
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "user.permissions.updated",
+      entityType: "user",
+      entityId: id,
+      summary: `Updated wiki permissions for ${updated.email}`,
+      details: JSON.stringify(parsed.data),
+    });
+    await createNotification(db, {
+      userId: id,
+      type: "permission_update",
+      title: "Wiki permissions updated",
+      body: "Your article edit/delete permissions were changed by an administrator.",
+      entityType: "user",
+      entityId: id,
+    });
     return res.json({ user: serializeUser(updated) });
   } catch (e) {
     console.error("USERS /:id/permissions ERROR:", e);
@@ -225,6 +242,22 @@ r.put("/:id/admin-profile", requireAdmin, async (req, res) => {
     );
 
     const updated = await getCurrentUser(db, id);
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "user.profile.updated_by_admin",
+      entityType: "user",
+      entityId: id,
+      summary: `Updated display name/role for ${updated.email}`,
+      details: JSON.stringify(parsed.data),
+    });
+    await createNotification(db, {
+      userId: id,
+      type: "profile_update",
+      title: "Your profile was updated",
+      body: "An administrator changed your display name or role label.",
+      entityType: "user",
+      entityId: id,
+    });
     return res.json({ user: serializeUser(updated) });
   } catch (e) {
     console.error("USERS /:id/admin-profile ERROR:", e);
@@ -251,6 +284,14 @@ r.delete("/:id", requireAdmin, async (req, res) => {
     await db.query(`UPDATE tickets SET created_by_user_id=NULL WHERE created_by_user_id=$1`, [id]);
     await db.query(`DELETE FROM chat_messages WHERE from_user_id=$1 OR to_user_id=$1`, [id]);
     await db.query(`DELETE FROM users WHERE id=$1`, [id]);
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "user.deleted",
+      entityType: "user",
+      entityId: id,
+      summary: `Deleted user ${existing.email}`,
+      details: "",
+    });
 
     return res.json({ ok: true });
   } catch (e) {

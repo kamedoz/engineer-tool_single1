@@ -13,6 +13,9 @@ import issueRoutes from "./routes/issues.js";
 import ticketRoutes from "./routes/tickets.js";
 import chatRoutes from "./routes/chat.js";
 import wikiRoutes from "./routes/wiki.js";
+import dashboardRoutes from "./routes/dashboard.js";
+import notificationRoutes from "./routes/notifications.js";
+import historyRoutes from "./routes/history.js";
 
 dotenv.config();
 
@@ -107,6 +110,9 @@ app.use("/api/issues", authRequired, issueRoutes);
 app.use("/api/tickets", authRequired, ticketRoutes);
 app.use("/api/chat", authRequired, chatRoutes);
 app.use("/api/wiki", authRequired, wikiRoutes);
+app.use("/api/dashboard", authRequired, dashboardRoutes);
+app.use("/api/notifications", authRequired, notificationRoutes);
+app.use("/api/history", authRequired, historyRoutes);
 
 
 

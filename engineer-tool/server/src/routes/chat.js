@@ -2,6 +2,7 @@ import express from "express";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
 import { getDisplayName, getUserLevel } from "../utils/users.js";
+import { createAuditLog, createNotification } from "../utils/activity.js";
 
 const router = express.Router();
 
@@ -166,6 +167,14 @@ router.post("/global", async (req, res) => {
       ]
     );
     const created = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [msg.id]);
+    await createAuditLog(db, {
+      actorUserId: me,
+      action: "chat.global.sent",
+      entityType: "chat_message",
+      entityId: msg.id,
+      summary: "Sent message to global chat",
+      details: quotedArticleId ? JSON.stringify({ quoted_article_id: quotedArticleId }) : "",
+    });
     return res.json({ message: mapMessage(created.rows?.[0]) });
   } catch (e) {
     console.error("CHAT GLOBAL SEND ERROR:", e);
@@ -307,6 +316,24 @@ router.post("/:otherUserId", async (req, res) => {
       ]
     );
     const created = await db.query(`${baseMessageQuery()} WHERE m.id=$1`, [msg.id]);
+    await createAuditLog(db, {
+      actorUserId: me,
+      action: "chat.direct.sent",
+      entityType: "chat_message",
+      entityId: msg.id,
+      summary: `Sent direct message to ${other}`,
+      details: quotedArticleId ? JSON.stringify({ quoted_article_id: quotedArticleId }) : "",
+    });
+    if (other !== me) {
+      await createNotification(db, {
+        userId: other,
+        type: "direct_message",
+        title: "New direct message",
+        body: msgText ? msgText.slice(0, 140) : "You received a quoted knowledge article.",
+        entityType: "chat_message",
+        entityId: msg.id,
+      });
+    }
     return res.json({ message: mapMessage(created.rows?.[0]) });
   } catch (e) {
     console.error("CHAT SEND ERROR:", e);

@@ -72,7 +72,7 @@ function ImageUploader({ images, onChange }) {
   );
 }
 
-function ArticleForm({ initial, categories, onSave, onCancel }) {
+function ArticleForm({ initial, categories, onSave, onCancel, t }) {
   const [title, setTitle] = useState(initial?.title || "");
   const [category, setCategory] = useState(initial?.category || "");
   const [body, setBody] = useState(initial?.body || "");
@@ -98,15 +98,15 @@ function ArticleForm({ initial, categories, onSave, onCancel }) {
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Article title" />
-      <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Category" list="wiki-categories" />
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("articleTitle")} />
+      <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t("categoryRequired")} list="wiki-categories" />
       <datalist id="wiki-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist>
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write article details here..." style={{ minHeight: 180 }} />
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={t("writeArticle")} style={{ minHeight: 180 }} />
       <ImageUploader images={images} onChange={setImages} />
       {error ? <div style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</div> : null}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button onClick={onCancel}>Cancel</button>
-        <button onClick={submit} disabled={saving}>{saving ? "Saving..." : "Save article"}</button>
+        <button onClick={onCancel}>{t("cancel")}</button>
+        <button onClick={submit} disabled={saving}>{saving ? t("loading") : t("save")}</button>
       </div>
     </div>
   );
@@ -128,20 +128,20 @@ function AuthorBadge({ author }) {
   );
 }
 
-function CommentComposer({ onSubmit, initial = "", onCancel, submitLabel = "Save" }) {
+function CommentComposer({ onSubmit, initial = "", onCancel, submitLabel = "Save", t }) {
   const [value, setValue] = useState(initial);
   return (
     <div style={{ display: "grid", gap: 8 }}>
-      <textarea value={value} onChange={(e) => setValue(e.target.value)} style={{ minHeight: 70 }} placeholder="Write a comment..." />
+      <textarea value={value} onChange={(e) => setValue(e.target.value)} style={{ minHeight: 70 }} placeholder={t("writeComment")} />
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        {onCancel ? <button onClick={onCancel}>Cancel</button> : null}
+        {onCancel ? <button onClick={onCancel}>{t("cancel")}</button> : null}
         <button onClick={() => onSubmit(value)}>{submitLabel}</button>
       </div>
     </div>
   );
 }
 
-function CommentsSection({ article, me, onError }) {
+function CommentsSection({ article, me, onError, t }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState("");
@@ -189,7 +189,7 @@ function CommentsSection({ article, me, onError }) {
     if (!confirm("Delete this comment?")) return;
     try {
       await WikiAPI.removeComment(article.id, commentId);
-      setComments((prev) => prev.map((item) => (item.id === commentId ? { ...item, body: "[comment deleted]", is_deleted: true } : item)));
+      setComments((prev) => prev.filter((item) => item.id !== commentId));
     } catch (e) {
       onError?.(e?.message || "Failed to delete comment");
     }
@@ -197,8 +197,8 @@ function CommentsSection({ article, me, onError }) {
 
   return (
     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, display: "grid", gap: 10 }}>
-      <div style={{ fontWeight: 700 }}>Comments</div>
-      <CommentComposer onSubmit={addComment} submitLabel="Add comment" />
+      <div style={{ fontWeight: 700 }}>{t("comments")}</div>
+      <CommentComposer onSubmit={addComment} submitLabel={t("addComment")} t={t} />
       {loading ? <div style={{ opacity: 0.7 }}>Loading comments...</div> : null}
       {comments.map((comment) => {
         const canManage = comment.user_id === me?.user?.id || me?.user?.role === "admin";
@@ -216,7 +216,8 @@ function CommentsSection({ article, me, onError }) {
                   initial={comment.body}
                   onSubmit={(body) => saveComment(comment.id, body)}
                   onCancel={() => setEditingId("")}
-                  submitLabel="Save"
+                  submitLabel={t("save")}
+                  t={t}
                 />
               </div>
             ) : (
@@ -224,8 +225,8 @@ function CommentsSection({ article, me, onError }) {
             )}
             {canManage && !comment.is_deleted && editingId !== comment.id ? (
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button onClick={() => setEditingId(comment.id)}>Edit</button>
-                <button onClick={() => deleteComment(comment.id)}>Delete</button>
+                <button onClick={() => setEditingId(comment.id)}>{t("edit")}</button>
+                <button onClick={() => deleteComment(comment.id)}>{t("delete")}</button>
               </div>
             ) : null}
           </div>
@@ -235,7 +236,7 @@ function CommentsSection({ article, me, onError }) {
   );
 }
 
-function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuote, onError }) {
+function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuote, onError, t }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -265,19 +266,19 @@ function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuot
           ) : null}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-            <button onClick={() => onQuote(article)}>Quote to chat</button>
-            {canEdit ? <button onClick={() => onEdit(article)}>Edit</button> : null}
-            {canDelete ? <button onClick={() => onDelete(article)} style={{ background: "rgba(184,74,90,.18)", borderColor: "rgba(184,74,90,.35)" }}>Delete</button> : null}
+            <button onClick={() => onQuote(article)}>{t("quoteToChat")}</button>
+            {canEdit ? <button onClick={() => onEdit(article)}>{t("edit")}</button> : null}
+            {canDelete ? <button onClick={() => onDelete(article)} style={{ background: "rgba(184,74,90,.18)", borderColor: "rgba(184,74,90,.35)" }}>{t("delete")}</button> : null}
           </div>
 
-          <CommentsSection article={article} me={me} onError={onError} />
+          <CommentsSection article={article} me={me} onError={onError} t={t} />
         </div>
       ) : null}
     </div>
   );
 }
 
-export default function WikiSection({ me, onMeRefresh, onQuoteArticle }) {
+export default function WikiSection({ me, onMeRefresh, onQuoteArticle, t }) {
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
@@ -347,10 +348,10 @@ export default function WikiSection({ me, onMeRefresh, onQuoteArticle }) {
       <div style={{ display: "grid", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={() => setMode(null)}>Back</button>
-          <h2 style={{ margin: 0 }}>{mode === "new" ? "New article" : "Edit article"}</h2>
+          <h2 style={{ margin: 0 }}>{mode === "new" ? t("newArticle") : t("editArticle")}</h2>
         </div>
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14 }}>
-          <ArticleForm initial={mode === "new" ? null : mode} categories={categories} onSave={handleSave} onCancel={() => setMode(null)} />
+          <ArticleForm initial={mode === "new" ? null : mode} categories={categories} onSave={handleSave} onCancel={() => setMode(null)} t={t} />
         </div>
       </div>
     );
@@ -360,24 +361,24 @@ export default function WikiSection({ me, onMeRefresh, onQuoteArticle }) {
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ margin: 0 }}>Knowledge base</h2>
+          <h2 style={{ margin: 0 }}>{t("knowledgeBase")}</h2>
           <div style={{ opacity: 0.75, fontSize: 13, marginTop: 4 }}>
-            Everyone can add articles. Comment on articles and quote them directly into chat.
+            {t("knowledgeIntro")}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={load}>Refresh</button>
-          <button onClick={() => setMode("new")}>+ Add article</button>
+          <button onClick={load}>{t("refresh")}</button>
+          <button onClick={() => setMode("new")}>+ {t("addArticle")}</button>
         </div>
       </div>
 
       <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ minWidth: 150 }}>
-            <option value="">All categories</option>
+            <option value="">{t("allCategories")}</option>
             {categories.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search articles..." style={{ flex: 1, minWidth: 180 }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("globalSearchPlaceholder")} style={{ flex: 1, minWidth: 180 }} />
         </div>
       </div>
 
@@ -385,7 +386,7 @@ export default function WikiSection({ me, onMeRefresh, onQuoteArticle }) {
       {loading ? <div style={{ opacity: 0.7 }}>Loading...</div> : null}
 
       {!loading && visible.length === 0 ? (
-        <div style={{ opacity: 0.75 }}>{articles.length === 0 ? "No articles yet." : "Nothing found."}</div>
+        <div style={{ opacity: 0.75 }}>{articles.length === 0 ? t("noArticlesYet") : t("nothingFound")}</div>
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
           {visible.map((article) => (
@@ -399,6 +400,7 @@ export default function WikiSection({ me, onMeRefresh, onQuoteArticle }) {
               onDelete={handleDelete}
               onQuote={onQuoteArticle}
               onError={setError}
+              t={t}
             />
           ))}
         </div>

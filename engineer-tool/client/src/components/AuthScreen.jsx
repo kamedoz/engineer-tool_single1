@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
-export default function AuthScreen({ onLogin, onRegister, error }) {
-  const [mode, setMode] = useState("login"); // login | register
+export default function AuthScreen({ onLogin, onRegister, error, t, language, setLanguage }) {
+  const [mode, setMode] = useState("login");
   const [firstName, setFirstName] = useState("Andrei");
   const [lastName, setLastName] = useState("Anishchenko");
   const [email, setEmail] = useState("");
@@ -16,137 +16,70 @@ export default function AuthScreen({ onLogin, onRegister, error }) {
     setLocalError("");
 
     if (!email || !password) {
-      setLocalError("Email и пароль обязательны");
+      setLocalError(`${t("email")} + ${t("password")} ${language === "ru" ? "обязательны" : "are required"}`);
       return;
     }
 
     try {
       if (isRegister) {
         if (!firstName || !lastName) {
-          setLocalError("Имя и фамилия обязательны");
+          setLocalError(language === "ru" ? "Имя и фамилия обязательны" : "First name and last name are required");
           return;
         }
-        await onRegister?.({
-          email,
-          password,
-          first_name: firstName,
-          last_name: lastName,
-        });
+        await onRegister?.({ email, password, first_name: firstName, last_name: lastName });
       } else {
         await onLogin?.(email, password);
       }
     } catch (err) {
-      setLocalError(err?.message || "Ошибка");
+      setLocalError(err?.message || t("authError"));
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "16px",
-        background: "radial-gradient(1200px 700px at 30% 30%, #0f172a, #020617)",
-        color: "#e5e7eb",
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-      }}
-    >
-      <form
-        onSubmit={submit}
-        style={{
-          width: "min(420px, 100%)",
-          background: "rgba(2,6,23,0.65)",
-          border: "1px solid rgba(148,163,184,0.15)",
-          borderRadius: 16,
-          padding: 22,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>Engineer Tool</div>
-
-          <button
-            type="button"
-            onClick={() => setMode(isRegister ? "login" : "register")}
-            style={{
-              borderRadius: 12,
-              border: "1px solid rgba(148,163,184,0.25)",
-              background: "rgba(15,23,42,0.6)",
-              color: "#e5e7eb",
-              padding: "8px 14px",
-              cursor: "pointer",
-            }}
-          >
-            {isRegister ? "Логин" : "Регистрация"}
-          </button>
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 16, background: "radial-gradient(1200px 700px at 30% 30%, #0f172a, #020617)", color: "#e5e7eb", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial" }}>
+      <form onSubmit={submit} style={{ width: "min(420px, 100%)", background: "rgba(2,6,23,0.65)", border: "1px solid rgba(148,163,184,0.15)", borderRadius: 16, padding: 22, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{t("appName")}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ width: 110 }}>
+              <option value="ru">{t("russian")}</option>
+              <option value="en">{t("english")}</option>
+            </select>
+            <button type="button" onClick={() => setMode(isRegister ? "login" : "register")} style={{ borderRadius: 12, border: "1px solid rgba(148,163,184,0.25)", background: "rgba(15,23,42,0.6)", color: "#e5e7eb", padding: "8px 14px", cursor: "pointer" }}>
+              {isRegister ? t("login") : t("register")}
+            </button>
+          </div>
         </div>
 
-        {isRegister && (
+        {isRegister ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
             <div>
-              <label style={{ fontSize: 12, opacity: 0.8 }}>Имя</label>
-              <input
-                id="first_name"
-                name="first_name"
-                autoComplete="given-name"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                style={inputStyle}
-              />
+              <label style={{ fontSize: 12, opacity: 0.8 }}>{t("firstName")}</label>
+              <input autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={{ fontSize: 12, opacity: 0.8 }}>Фамилия</label>
-              <input
-                id="last_name"
-                name="last_name"
-                autoComplete="family-name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                style={inputStyle}
-              />
+              <label style={{ fontSize: 12, opacity: 0.8 }}>{t("lastName")}</label>
+              <input autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} style={inputStyle} />
             </div>
           </div>
-        )}
+        ) : null}
 
         <div style={{ marginTop: 14 }}>
-          <label style={{ fontSize: 12, opacity: 0.8 }}>Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
+          <label style={{ fontSize: 12, opacity: 0.8 }}>{t("email")}</label>
+          <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <label style={{ fontSize: 12, opacity: 0.8 }}>Пароль</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete={isRegister ? "new-password" : "current-password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
+          <label style={{ fontSize: 12, opacity: 0.8 }}>{t("password")}</label>
+          <input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
         </div>
 
-        {errText ? (
-          <div style={{ marginTop: 10, color: "#fca5a5", fontSize: 13 }}>{errText}</div>
-        ) : (
-          <div style={{ marginTop: 10, height: 18 }} />
-        )}
+        {errText ? <div style={{ marginTop: 10, color: "#fca5a5", fontSize: 13 }}>{errText}</div> : <div style={{ marginTop: 10, height: 18 }} />}
 
-        <button type="submit" style={buttonStyle}>
-          {isRegister ? "Зарегистрироваться и войти" : "Войти"}
-        </button>
+        <button type="submit" style={buttonStyle}>{isRegister ? t("signUpAndEnter") : t("signIn")}</button>
 
         <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
-          Демо-аккаунт: <b>demo@engineer.local</b> / <b>demo1234</b>
+          {t("demoAccount")}: <b>demo@engineer.local</b> / <b>demo1234</b>
         </div>
       </form>
     </div>

@@ -2,6 +2,7 @@
 import express from "express";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
+import { createAuditLog, createNotification } from "../utils/activity.js";
 import PDFDocument from "pdfkit";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -141,6 +142,24 @@ router.post("/", async (req, res) => {
     );
 
     const q = await db.query(`SELECT * FROM tickets WHERE id=$1`, [id]);
+    await createAuditLog(db, {
+      actorUserId: req.user?.id ?? null,
+      action: "ticket.created",
+      entityType: "ticket",
+      entityId: id,
+      summary: `Created ticket ${id}`,
+      details: JSON.stringify({ site: site ?? null, engineer_user_id: engineer_user_id ?? null }),
+    });
+    if (engineer_user_id) {
+      await createNotification(db, {
+        userId: engineer_user_id,
+        type: "ticket_assigned",
+        title: "New ticket assigned",
+        body: site ? `You were assigned to ${site}.` : "A new ticket was assigned to you.",
+        entityType: "ticket",
+        entityId: id,
+      });
+    }
     return res.json(q.rows?.[0] || null);
   } catch (e) {
     console.error("TICKETS POST ERROR:", e);
@@ -172,6 +191,14 @@ router.put("/:id/status", async (req, res) => {
     if (!u.rowCount) return res.status(404).json({ error: "not found" });
 
     const q = await db.query(`SELECT * FROM tickets WHERE id=$1`, [id]);
+    await createAuditLog(db, {
+      actorUserId: req.user?.id ?? null,
+      action: "ticket.status.updated",
+      entityType: "ticket",
+      entityId: id,
+      summary: `Changed ticket ${id} status to ${s}`,
+      details: "",
+    });
     return res.json(q.rows?.[0] || null);
   } catch (e) {
     console.error("TICKETS STATUS ERROR:", e);

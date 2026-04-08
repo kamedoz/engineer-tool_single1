@@ -134,3 +134,17 @@ export const WikiAPI = {
   updateComment: (articleId, commentId, body) => request("PUT", `/api/wiki/${articleId}/comments/${commentId}`, { body }),
   removeComment: (articleId, commentId) => request("DELETE", `/api/wiki/${articleId}/comments/${commentId}`),
 };
+
+export const DashboardAPI = {
+  get: () => request("GET", "/api/dashboard"),
+};
+
+export const NotificationsAPI = {
+  list: () => request("GET", "/api/notifications"),
+  markRead: (id) => request("PUT", `/api/notifications/${id}/read`),
+  markAllRead: () => request("PUT", "/api/notifications/read-all"),
+};
+
+export const HistoryAPI = {
+  list: () => request("GET", "/api/history"),
+};

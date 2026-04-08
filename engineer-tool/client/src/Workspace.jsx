@@ -10,6 +10,9 @@ import WikiSection from "./components/WikiSection.jsx";
 import ProfileSection from "./components/ProfileSection.jsx";
 import LeaderboardSection from "./components/LeaderboardSection.jsx";
 import AdminUsersSection from "./components/AdminUsersSection.jsx";
+import DashboardSection from "./components/DashboardSection.jsx";
+import NotificationsSection from "./components/NotificationsSection.jsx";
+import HistorySection from "./components/HistorySection.jsx";
 
 /* ── helpers ── */
 function fmtISODateInput(value) {
@@ -348,8 +351,8 @@ function TicketModal({ open, ticket, onClose, onUpdated, setError, downloadPdf }
 /* ════════════════════════════════════════
    WORKSPACE (main component)
    ════════════════════════════════════════ */
-export default function Workspace({ me, onLogout, onRefreshMe }) {
-  const [tab, setTab] = useState("tickets");
+export default function Workspace({ me, onLogout, onRefreshMe, t, language, setLanguage }) {
+  const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
 
@@ -580,7 +583,7 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
     });
   }, [issues, issueSearch, issueCategoryFilter]);
 
-  const tabLabels = { tickets: "Заявки", kb: "Пошаговые инструкции", chat: "Чат", wiki: "Библиотека знаний" };
+  const tabLabels = { tickets: t("tickets"), kb: t("instructions"), chat: t("chat"), wiki: t("knowledgeBase"), dashboard: t("dashboard"), notifications: t("notifications"), history: t("history") };
 
   const recentMap = useMemo(() => {
     const map = new Map();
@@ -631,18 +634,28 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
             </button>
           </div>
           <div style={{ opacity: 0.75, fontSize: 13, marginBottom: 16 }}>{meLabel}</div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{t("language")}</label>
+            <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+              <option value="ru">{t("russian")}</option>
+              <option value="en">{t("english")}</option>
+            </select>
+          </div>
 
           <div style={{ display: "grid", gap: 8 }}>
-            <button onClick={() => switchTab("tickets")}>Заявки</button>
-            <button onClick={() => switchTab("kb")}>Пошаговые инструкции</button>
-            <button onClick={() => { switchTab("chat"); setSelectedChatMode("global"); setSelectedUserId(""); loadMessages(""); refreshChatThreads(); }}>Чат</button>
-            <button onClick={() => switchTab("wiki")}>📚 Библиотека знаний</button>
-            <button onClick={() => switchTab("profile")}>Профиль</button>
-            <button onClick={() => switchTab("leaderboard")}>Рейтинг</button>
+            <button onClick={() => switchTab("dashboard")}>{t("dashboard")}</button>
+            <button onClick={() => switchTab("notifications")}>{t("notifications")}</button>
+            <button onClick={() => switchTab("history")}>{t("history")}</button>
+            <button onClick={() => switchTab("tickets")}>{t("tickets")}</button>
+            <button onClick={() => switchTab("kb")}>{t("instructions")}</button>
+            <button onClick={() => { switchTab("chat"); setSelectedChatMode("global"); setSelectedUserId(""); loadMessages(""); refreshChatThreads(); }}>{t("chat")}</button>
+            <button onClick={() => switchTab("wiki")}>{t("knowledgeBase")}</button>
+            <button onClick={() => switchTab("profile")}>{t("profile")}</button>
+            <button onClick={() => switchTab("leaderboard")}>{t("leaderboard")}</button>
             {me?.user?.role === "admin" ? (
-              <button onClick={() => switchTab("adminUsers")}>Пользователи</button>
+              <button onClick={() => switchTab("adminUsers")}>{t("users")}</button>
             ) : null}
-            <button onClick={onLogout}>Выйти</button>
+            <button onClick={onLogout}>{t("logout")}</button>
           </div>
 
           {error && <div style={{ marginTop: 10, color: "#ff6b6b", fontSize: 13, wordBreak: "break-word" }}>{error}</div>}
@@ -650,6 +663,11 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
 
         {/* Main content */}
         <div className="ws-content">
+          {tab === "dashboard" && <DashboardSection t={t} />}
+
+          {tab === "notifications" && <NotificationsSection t={t} />}
+
+          {tab === "history" && <HistorySection t={t} />}
 
           {/* ── TICKETS ── */}
           {tab === "tickets" && (
@@ -797,13 +815,13 @@ export default function Workspace({ me, onLogout, onRefreshMe }) {
           )}
 
           {/* ── WIKI ── */}
-          {tab === "wiki" && <WikiSection me={me} onMeRefresh={onRefreshMe} onQuoteArticle={quoteArticleToChat} />}
+          {tab === "wiki" && <WikiSection me={me} onMeRefresh={onRefreshMe} onQuoteArticle={quoteArticleToChat} t={t} />}
 
-          {tab === "profile" && <ProfileSection me={me} onMeRefresh={onRefreshMe} />}
+          {tab === "profile" && <ProfileSection me={me} onMeRefresh={onRefreshMe} t={t} />}
 
-          {tab === "leaderboard" && <LeaderboardSection />}
+          {tab === "leaderboard" && <LeaderboardSection t={t} />}
 
-          {tab === "adminUsers" && me?.user?.role === "admin" ? <AdminUsersSection /> : null}
+          {tab === "adminUsers" && me?.user?.role === "admin" ? <AdminUsersSection t={t} /> : null}
 
           {/* ── CHAT ── */}
           {tab === "chat" && (

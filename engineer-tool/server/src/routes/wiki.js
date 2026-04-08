@@ -2,6 +2,7 @@ import express from "express";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
 import { XP_PER_ARTICLE, getDisplayName, getUserLevel } from "../utils/users.js";
+import { createAuditLog, createNotification } from "../utils/activity.js";
 
 const router = express.Router();
 
@@ -49,8 +50,8 @@ function normalizeComment(row) {
     id: row.id,
     article_id: row.article_id,
     user_id: row.user_id,
-    body: row.deleted_at ? "[comment deleted]" : row.body,
-    is_deleted: Boolean(row.deleted_at),
+    body: row.body,
+    is_deleted: false,
     created_at: row.created_at,
     updated_at: row.updated_at,
     author: row.comment_author_id
@@ -189,6 +190,26 @@ router.post("/:id/comments", async (req, res) => {
     );
 
     const created = await db.query(`${baseCommentQuery()} WHERE c.id=$1`, [id]);
+    const articleOwnerQ = await db.query(`SELECT created_by_user_id, title FROM wiki_articles WHERE id=$1`, [req.params.id]);
+    const articleOwnerId = articleOwnerQ.rows?.[0]?.created_by_user_id;
+    if (articleOwnerId && articleOwnerId !== req.user.id) {
+      await createNotification(db, {
+        userId: articleOwnerId,
+        type: "wiki_comment",
+        title: "New article comment",
+        body: `A new comment was added to "${articleOwnerQ.rows[0].title}".`,
+        entityType: "wiki_article",
+        entityId: req.params.id,
+      });
+    }
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "wiki.comment.created",
+      entityType: "wiki_comment",
+      entityId: id,
+      summary: `Added comment to article ${req.params.id}`,
+      details: "",
+    });
     return res.json(normalizeComment(created.rows?.[0]));
   } catch (e) {
     console.error("WIKI COMMENTS POST ERROR:", e);
@@ -210,12 +231,20 @@ router.put("/:articleId/comments/:commentId", async (req, res) => {
       return res.status(403).json({ error: "Cannot edit this comment" });
     }
 
-    await db.query(`UPDATE wiki_comments SET body=$1, updated_at=$2, deleted_at=NULL WHERE id=$3`, [
+    await db.query(`UPDATE wiki_comments SET body=$1, updated_at=$2 WHERE id=$3`, [
       body,
       new Date().toISOString(),
       req.params.commentId,
     ]);
     const updated = await db.query(`${baseCommentQuery()} WHERE c.id=$1`, [req.params.commentId]);
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "wiki.comment.updated",
+      entityType: "wiki_comment",
+      entityId: req.params.commentId,
+      summary: `Updated comment ${req.params.commentId}`,
+      details: "",
+    });
     return res.json(normalizeComment(updated.rows?.[0]));
   } catch (e) {
     console.error("WIKI COMMENTS PUT ERROR:", e);
@@ -234,10 +263,15 @@ router.delete("/:articleId/comments/:commentId", async (req, res) => {
       return res.status(403).json({ error: "Cannot delete this comment" });
     }
 
-    await db.query(`UPDATE wiki_comments SET deleted_at=$1 WHERE id=$2`, [
-      new Date().toISOString(),
-      req.params.commentId,
-    ]);
+    await db.query(`DELETE FROM wiki_comments WHERE id=$1`, [req.params.commentId]);
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "wiki.comment.deleted",
+      entityType: "wiki_comment",
+      entityId: req.params.commentId,
+      summary: `Deleted comment ${req.params.commentId}`,
+      details: "",
+    });
     return res.json({ ok: true });
   } catch (e) {
     console.error("WIKI COMMENTS DELETE ERROR:", e);
@@ -274,6 +308,14 @@ router.post("/", async (req, res) => {
     }
 
     const created = await db.query(`${baseArticleQuery()} WHERE w.id=$1`, [id]);
+    await createAuditLog(db, {
+      actorUserId: req.user?.id ?? null,
+      action: "wiki.article.created",
+      entityType: "wiki_article",
+      entityId: id,
+      summary: `Created article ${t}`,
+      details: JSON.stringify({ category: cat }),
+    });
     return res.json(normalizeArticle(created.rows?.[0]));
   } catch (e) {
     console.error("WIKI POST ERROR:", e);
@@ -316,6 +358,14 @@ router.put("/:id", async (req, res) => {
     );
 
     const updated = await db.query(`${baseArticleQuery()} WHERE w.id=$1`, [id]);
+    await createAuditLog(db, {
+      actorUserId: req.user?.id ?? null,
+      action: "wiki.article.updated",
+      entityType: "wiki_article",
+      entityId: id,
+      summary: `Updated article ${next.title}`,
+      details: "",
+    });
     return res.json(normalizeArticle(updated.rows?.[0]));
   } catch (e) {
     console.error("WIKI PUT ERROR:", e);
@@ -334,6 +384,14 @@ router.delete("/:id", async (req, res) => {
     await db.query(`DELETE FROM wiki_comments WHERE article_id=$1`, [req.params.id]);
     const d = await db.query(`DELETE FROM wiki_articles WHERE id=$1`, [req.params.id]);
     if (!d.rowCount) return res.status(404).json({ error: "not found" });
+    await createAuditLog(db, {
+      actorUserId: req.user?.id ?? null,
+      action: "wiki.article.deleted",
+      entityType: "wiki_article",
+      entityId: req.params.id,
+      summary: `Deleted article ${req.params.id}`,
+      details: "",
+    });
     return res.json({ ok: true });
   } catch (e) {
     console.error("WIKI DELETE ERROR:", e);

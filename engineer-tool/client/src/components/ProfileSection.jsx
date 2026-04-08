@@ -34,7 +34,7 @@ function toBase64(file) {
   });
 }
 
-export default function ProfileSection({ me, onMeRefresh }) {
+export default function ProfileSection({ me, onMeRefresh, t }) {
   const user = me?.user;
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -90,7 +90,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <h2 style={{ margin: 0 }}>Profile</h2>
+      <h2 style={{ margin: 0 }}>{t("profile")}</h2>
 
       <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 16, display: "grid", gap: 14 }}>
         <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
@@ -121,7 +121,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
             </div>
             <div style={{ opacity: 0.75, marginTop: 4 }}>{user.email}</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 14 }}>
-              <span>Role: <span style={{ color: user.role_color || "#ffffff", fontWeight: 700 }}>{user.display_role || user.role}</span></span>
+              <span>{t("actor")}: <span style={{ color: user.role_color || "#ffffff", fontWeight: 700 }}>{user.display_role || user.role}</span></span>
               <span>Level: {user.level}/100</span>
               <span>Total XP: {user.experience}</span>
               <span>Available XP: {user.available_experience}</span>
@@ -143,7 +143,7 @@ export default function ProfileSection({ me, onMeRefresh }) {
         </div>
 
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Progress</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Progress</div>
           <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
             <div
               style={{

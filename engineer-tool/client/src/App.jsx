@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import AuthScreen from "./components/AuthScreen.jsx";
 import Workspace from "./Workspace.jsx";
 import { AuthAPI, UsersAPI, getToken, setToken, clearToken } from "./api.js";
+import { translate } from "./i18n.js";
 
 export default function App() {
   const [token, setTok] = useState(getToken());
@@ -9,6 +10,15 @@ export default function App() {
   const [bootError, setBootError] = useState("");
   const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "ru");
+
+  function t(key, params) {
+    return translate(language, key, params);
+  }
+
+  useEffect(() => {
+    localStorage.setItem("language", language);
+  }, [language]);
 
   async function loadMe() {
     setBootError("");
@@ -19,7 +29,7 @@ export default function App() {
       clearToken();
       setMe(null);
       setTok("");
-      setBootError(e?.message || "Auth error");
+      setBootError(e?.message || t("authError"));
     }
   }
 
@@ -41,7 +51,7 @@ export default function App() {
       setTok(tok);
       await loadMe();
     } catch (e) {
-      setAuthError(e?.message || "Login error");
+      setAuthError(e?.message || t("authError"));
       clearToken();
       setTok("");
       setMe(null);
@@ -85,7 +95,10 @@ export default function App() {
       <AuthScreen
         onLogin={onLogin}
         onRegister={onRegister}
-        error={loading ? "Loading..." : authError}
+        error={loading ? t("loading") : authError}
+        t={t}
+        language={language}
+        setLanguage={setLanguage}
       />
     );
   }
@@ -95,7 +108,7 @@ export default function App() {
       {bootError ? (
         <div style={{ padding: 12, color: "#ff6b6b" }}>{bootError}</div>
       ) : null}
-      <Workspace me={me} onLogout={logout} onRefreshMe={loadMe} />
+      <Workspace me={me} onLogout={logout} onRefreshMe={loadMe} t={t} language={language} setLanguage={setLanguage} />
     </div>
   );
 }
