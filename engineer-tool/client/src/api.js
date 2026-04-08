@@ -105,3 +105,17 @@ export const ChatAPI = {
     request("POST", `/api/chat/${otherUserId}`, { text }),
 };
 
+export const WikiAPI = {
+  list: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set("category", params.category);
+    if (params.search) qs.set("search", params.search);
+    const q = qs.toString();
+    return request("GET", `/api/wiki${q ? "?" + q : ""}`);
+  },
+  categories: () => request("GET", "/api/wiki/categories"),
+  get: (id) => request("GET", `/api/wiki/${id}`),
+  create: (payload) => request("POST", "/api/wiki", payload),
+  update: (id, payload) => request("PUT", `/api/wiki/${id}`, payload),
+  remove: (id) => request("DELETE", `/api/wiki/${id}`),
+};
