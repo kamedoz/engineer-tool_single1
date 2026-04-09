@@ -53,11 +53,14 @@ async function parseZohoResponse(res) {
   }
 
   if (!res.ok) {
-    const message =
+    let message =
       data?.error ||
       data?.error_description ||
       data?.message ||
       (typeof data === "string" ? data : `Zoho HTTP ${res.status}`);
+    if (message && typeof message === "object") {
+      message = message.message || message.error_description || message.error || JSON.stringify(message);
+    }
     throw new Error(message);
   }
 

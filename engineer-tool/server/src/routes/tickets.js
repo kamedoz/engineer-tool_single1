@@ -150,7 +150,7 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: "Connect your Zoho account first" });
       }
       const createdTask = await createZohoTask(db, actor, zoho_project_id, {
-        name: site || "New Zoho task",
+        name: zoho_task_name || site || "New Zoho task",
         description: text || "",
       });
       zohoTaskId = createdTask.id;
@@ -317,7 +317,7 @@ router.post("/:id/zoho-close", async (req, res) => {
 
     if (!zohoTaskId) {
       const createdTask = await createZohoTask(db, actor, ticket.zoho_project_id, {
-        name: ticket.site || "New Zoho task",
+        name: ticket.zoho_task_name || ticket.site || "New Zoho task",
         description: ticket.issue_text || "",
       });
       zohoTaskId = createdTask.id;

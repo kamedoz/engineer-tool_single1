@@ -26,7 +26,6 @@ export default function ZohoSection({ t, onOpenTicket }) {
   const [ticketSearch, setTicketSearch] = useState("");
   const [zohoStatus, setZohoStatus] = useState({ connected: false, portal_name: "", account_email: "" });
   const [zohoProjects, setZohoProjects] = useState([]);
-  const [zohoTasks, setZohoTasks] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [form, setForm] = useState({
     site: "",
@@ -74,7 +73,6 @@ export default function ZohoSection({ t, onOpenTicket }) {
         setZohoProjects(projectsData?.projects || []);
       } else {
         setZohoProjects([]);
-        setZohoTasks([]);
       }
     } catch (e) {
       setError(e?.message || "HTTP error");
@@ -92,23 +90,6 @@ export default function ZohoSection({ t, onOpenTicket }) {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    async function loadTasks() {
-      if (!form.zoho_project_id) {
-        setZohoTasks([]);
-        return;
-      }
-      try {
-        const data = await ZohoAPI.tasks(form.zoho_project_id);
-        setZohoTasks(data?.tasks || []);
-      } catch (e) {
-        setZohoTasks([]);
-        setError(e?.message || "Failed to load Zoho tasks");
-      }
-    }
-    loadTasks();
-  }, [form.zoho_project_id]);
-
   async function connectZoho() {
     try {
       const data = await ZohoAPI.connectUrl();
@@ -121,6 +102,10 @@ export default function ZohoSection({ t, onOpenTicket }) {
   async function createTask() {
     if (!form.site.trim()) {
       setError("Object name is required");
+      return;
+    }
+    if (form.zoho_project_id && !form.zoho_task_name.trim()) {
+      setError("Zoho task name is required");
       return;
     }
     try {
@@ -228,23 +213,12 @@ export default function ZohoSection({ t, onOpenTicket }) {
             <option value="">{t("chooseZohoProject")}</option>
             {zohoProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
-          <select
-            value={form.zoho_task_id}
-            onChange={(e) => {
-              const task = zohoTasks.find((item) => item.id === e.target.value);
-              setForm((prev) => ({
-                ...prev,
-                zoho_task_id: e.target.value,
-                zoho_task_key: task?.key || "",
-                zoho_task_name: task?.name || "",
-                site: prev.site || task?.name || "",
-              }));
-            }}
+          <input
+            value={form.zoho_task_name}
+            onChange={(e) => setForm((prev) => ({ ...prev, zoho_task_name: e.target.value, zoho_task_id: "", zoho_task_key: "" }))}
+            placeholder={t("chooseZohoTask")}
             disabled={!form.zoho_project_id}
-          >
-            <option value="">{t("chooseZohoTask")}</option>
-            {zohoTasks.map((task) => <option key={task.id} value={task.id}>{task.key ? `${task.key} · ` : ""}{task.name}</option>)}
-          </select>
+          />
           <button onClick={createTask}>{t("createAndSyncTask")}</button>
         </div>
       </div>

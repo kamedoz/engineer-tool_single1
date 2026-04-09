@@ -30,7 +30,10 @@ async function handle(res) {
   }
 
   if (!res.ok) {
-    const msg = data?.error ? data.error : `HTTP ${res.status}`;
+    let msg = data?.error ? data.error : `HTTP ${res.status}`;
+    if (msg && typeof msg === "object") {
+      msg = msg.message || msg.error_description || msg.error || JSON.stringify(msg);
+    }
     throw new Error(msg);
   }
 
