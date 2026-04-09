@@ -180,7 +180,7 @@ export async function fetchZohoProjectUsers(db, user, projectId) {
   const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/users/`);
   const users = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
   return users.map((member) => ({
-    id: String(member.zpuid || member.id_string || member.id || member.user_id || ""),
+    id: String(member.id || member.id_string || member.user_id || member.zpuid || ""),
     name:
       member.name ||
       `${member.first_name || ""} ${member.last_name || ""}`.trim() ||

@@ -208,58 +208,71 @@ export default function ZohoSection({ t, onOpenTicket }) {
 
       <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>{t("createAndSyncTask")}</div>
-        <div className="grid-ticket-form">
-          <input value={form.site} onChange={(e) => setForm((prev) => ({ ...prev, site: e.target.value }))} placeholder={t("site")} />
-          <input type="date" value={form.visit_date} onChange={(e) => setForm((prev) => ({ ...prev, visit_date: e.target.value }))} />
-          <select value={form.engineer_user_id} onChange={(e) => setForm((prev) => ({ ...prev, engineer_user_id: e.target.value }))}>
-            <option value="">{t("assigneeOptional")}</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
-            ))}
-          </select>
-          <select
-            value={form.zoho_project_id}
-            onChange={(e) => {
-              const project = zohoProjects.find((item) => item.id === e.target.value);
-              setForm((prev) => ({
-                ...prev,
-                zoho_project_id: e.target.value,
-                zoho_project_name: project?.name || "",
-                site: project?.name || "",
-                zoho_task_id: "",
-                zoho_task_key: "",
-                zoho_task_name: "",
-                zoho_owner_id: "",
-                zoho_owner_name: "",
-              }));
-            }}
-            disabled={!zohoStatus.connected}
-          >
-            <option value="">{t("chooseZohoProject")}</option>
-            {zohoProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-          </select>
-          <select
-            value={form.zoho_owner_id}
-            onChange={(e) => {
-              const owner = zohoUsers.find((item) => item.id === e.target.value);
-              setForm((prev) => ({
-                ...prev,
-                zoho_owner_id: e.target.value,
-                zoho_owner_name: owner?.name || "",
-              }));
-            }}
-            disabled={!form.zoho_project_id}
-          >
-            <option value="">Zoho executor</option>
-            {zohoUsers.map((user) => <option key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ""}</option>)}
-          </select>
-          <input
-            value={form.zoho_task_name}
-            onChange={(e) => setForm((prev) => ({ ...prev, zoho_task_name: e.target.value, zoho_task_id: "", zoho_task_key: "" }))}
-            placeholder={t("chooseZohoTask")}
-            disabled={!form.zoho_project_id}
-          />
-          <button onClick={createTask}>{t("createAndSyncTask")}</button>
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>1. Выберите проект из Zoho</div>
+            <div className="grid-ticket-form">
+              <select
+                value={form.zoho_project_id}
+                onChange={(e) => {
+                  const project = zohoProjects.find((item) => item.id === e.target.value);
+                  setForm((prev) => ({
+                    ...prev,
+                    zoho_project_id: e.target.value,
+                    zoho_project_name: project?.name || "",
+                    site: project?.name || "",
+                    zoho_task_id: "",
+                    zoho_task_key: "",
+                    zoho_task_name: "",
+                    zoho_owner_id: "",
+                    zoho_owner_name: "",
+                  }));
+                }}
+                disabled={!zohoStatus.connected}
+              >
+                <option value="">{t("chooseZohoProject")}</option>
+                {zohoProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+              </select>
+              <input type="date" value={form.visit_date} onChange={(e) => setForm((prev) => ({ ...prev, visit_date: e.target.value }))} />
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>2. Назначьте исполнителя из Zoho</div>
+            <select
+              value={form.zoho_owner_id}
+              onChange={(e) => {
+                const owner = zohoUsers.find((item) => item.id === e.target.value);
+                setForm((prev) => ({
+                  ...prev,
+                  zoho_owner_id: e.target.value,
+                  zoho_owner_name: owner?.name || "",
+                }));
+              }}
+              disabled={!form.zoho_project_id}
+            >
+              <option value="">Zoho executor</option>
+              {zohoUsers.map((user) => <option key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ""}</option>)}
+            </select>
+          </div>
+
+          <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>3. Впишите название вашей задачи</div>
+            <div className="grid-ticket-form">
+              <input value={form.site} onChange={(e) => setForm((prev) => ({ ...prev, site: e.target.value }))} placeholder={t("site")} />
+              <input
+                value={form.zoho_task_name}
+                onChange={(e) => setForm((prev) => ({ ...prev, zoho_task_name: e.target.value, zoho_task_id: "", zoho_task_key: "" }))}
+                placeholder="Впишите название вашей задачи"
+                disabled={!form.zoho_project_id}
+              />
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>4. Создайте и свяжите задачу</div>
+            <button onClick={createTask} style={{ width: "100%" }}>{t("createAndSyncTask")}</button>
+          </div>
         </div>
       </div>
 
