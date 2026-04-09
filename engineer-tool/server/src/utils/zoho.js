@@ -177,10 +177,13 @@ export async function fetchZohoTasks(db, user, projectId) {
 
 export async function fetchZohoProjectUsers(db, user, projectId) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
-  const [projectData, portalData] = await Promise.all([
-    zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/users/`),
-    zohoApi(db, user, "GET", `/portal/${portalName}/users/`),
-  ]);
+  const projectData = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/users/`);
+  let portalData = null;
+  try {
+    portalData = await zohoApi(db, user, "GET", `/portal/${portalName}/users/`);
+  } catch {
+    portalData = null;
+  }
   const projectUsers = Array.isArray(projectData?.users) ? projectData.users : Array.isArray(projectData) ? projectData : [];
   const portalUsers = Array.isArray(portalData?.users) ? portalData.users : Array.isArray(portalData) ? portalData : [];
   const portalMap = new Map(
@@ -192,9 +195,16 @@ export async function fetchZohoProjectUsers(db, user, projectId) {
 
   return projectUsers.map((member) => {
     const email = String(member.email || "").trim();
+    const directPortalId = String(
+      member.portal_user_id ||
+      member.owner_zpuid ||
+      member.owner_id ||
+      member.zpuid ||
+      ""
+    );
     return {
       id: String(member.id || member.id_string || member.user_id || member.zpuid || ""),
-      portal_id: portalMap.get(email.toLowerCase()) || "",
+      portal_id: portalMap.get(email.toLowerCase()) || directPortalId,
       name:
         member.name ||
         `${member.first_name || ""} ${member.last_name || ""}`.trim() ||
