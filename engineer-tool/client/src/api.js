@@ -161,4 +161,5 @@ export const ZohoAPI = {
   disconnect: () => request("POST", "/api/zoho/disconnect"),
   projects: () => request("GET", "/api/zoho/projects"),
   tasks: (projectId) => request("GET", `/api/zoho/projects/${projectId}/tasks`),
+  users: (projectId) => request("GET", `/api/zoho/projects/${projectId}/users`),
 };

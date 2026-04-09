@@ -110,6 +110,8 @@ async function migrate(p) {
   await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_task_id TEXT;`);
   await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_task_key TEXT;`);
   await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_task_name TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_owner_id TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_owner_name TEXT;`);
   await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_sync_status TEXT;`);
   await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_last_sync_at TEXT;`);
   await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_last_sync_error TEXT;`);

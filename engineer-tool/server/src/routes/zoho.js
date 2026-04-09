@@ -7,6 +7,7 @@ import {
   decodeZohoState,
   exchangeZohoCode,
   fetchZohoCurrentUser,
+  fetchZohoProjectUsers,
   fetchZohoProjects,
   fetchZohoTasks,
   getZohoFrontendRedirect,
@@ -114,6 +115,20 @@ r.get("/projects/:projectId/tasks", authRequired, async (req, res) => {
   } catch (e) {
     console.error("ZOHO TASKS ERROR:", e);
     return res.status(500).json({ error: e?.message || "Failed to load Zoho tasks" });
+  }
+});
+
+r.get("/projects/:projectId/users", authRequired, async (req, res) => {
+  const db = getDb();
+  try {
+    const user = await getCurrentUser(db, req.user.id);
+    if (!user?.zoho_refresh_token) {
+      return res.status(400).json({ error: "Connect your Zoho account first" });
+    }
+    return res.json({ users: await fetchZohoProjectUsers(db, user, req.params.projectId) });
+  } catch (e) {
+    console.error("ZOHO PROJECT USERS ERROR:", e);
+    return res.status(500).json({ error: e?.message || "Failed to load Zoho project users" });
   }
 });
 

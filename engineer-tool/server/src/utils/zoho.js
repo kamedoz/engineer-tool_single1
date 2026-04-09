@@ -26,10 +26,9 @@ export function buildZohoAuthUrl(userId) {
   const scopes = [
     "ZohoProjects.portals.READ",
     "ZohoProjects.projects.READ",
-    "ZohoProjects.tasks.READ",
-    "ZohoProjects.tasks.CREATE",
-    "ZohoProjects.tasks.UPDATE",
-    "ZohoProjects.timesheets.CREATE",
+    "ZohoProjects.tasks.ALL",
+    "ZohoProjects.timesheets.ALL",
+    "ZohoProjects.users.READ",
   ].join(",");
 
   const url = new URL(`${cfg.accountsBase}/oauth/v2/auth`);
@@ -176,11 +175,27 @@ export async function fetchZohoTasks(db, user, projectId) {
   }));
 }
 
+export async function fetchZohoProjectUsers(db, user, projectId) {
+  const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
+  const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/users/`);
+  const users = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
+  return users.map((member) => ({
+    id: String(member.zpuid || member.id_string || member.id || member.user_id || ""),
+    name:
+      member.name ||
+      `${member.first_name || ""} ${member.last_name || ""}`.trim() ||
+      member.email ||
+      "Unnamed user",
+    email: member.email || "",
+  }));
+}
+
 export async function createZohoTask(db, user, projectId, payload) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
   const body = {
     name: payload.name,
     description: payload.description || "",
+    ...(payload.owner_id ? { person_responsible: payload.owner_id } : {}),
   };
 
   const data = await zohoApi(db, user, "POST", `/portal/${portalName}/projects/${projectId}/tasks/`, body);
@@ -210,7 +225,7 @@ export async function completeZohoTask(db, user, projectId, taskId) {
   throw lastError || new Error("Failed to close Zoho task");
 }
 
-export async function createZohoTimeLog(db, user, projectId, taskId, secondsSpent, noteText = "") {
+export async function createZohoTimeLog(db, user, projectId, taskId, secondsSpent, noteText = "", ownerId = "") {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
   const totalMinutes = Math.max(0, Math.round((Number(secondsSpent) || 0) / 60));
   if (!totalMinutes) return null;
@@ -221,8 +236,8 @@ export async function createZohoTimeLog(db, user, projectId, taskId, secondsSpen
   const minutes = String(totalMinutes % 60).padStart(2, "0");
   const hoursDisplay = `${hours}:${minutes}`;
   const payloadVariants = [
-    { date, bill_status: "Non Billable", hours: hoursDisplay, notes: noteText },
-    { date, bill_status: "Billable", hours: hoursDisplay, notes: noteText },
+    { date, bill_status: "Non Billable", hours: hoursDisplay, notes: noteText, ...(ownerId ? { owner: ownerId } : {}) },
+    { date, bill_status: "Billable", hours: hoursDisplay, notes: noteText, ...(ownerId ? { owner: ownerId } : {}) },
   ];
 
   let lastError = null;

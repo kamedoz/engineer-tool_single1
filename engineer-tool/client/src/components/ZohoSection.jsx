@@ -26,6 +26,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
   const [ticketSearch, setTicketSearch] = useState("");
   const [zohoStatus, setZohoStatus] = useState({ connected: false, portal_name: "", account_email: "" });
   const [zohoProjects, setZohoProjects] = useState([]);
+  const [zohoUsers, setZohoUsers] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [form, setForm] = useState({
     site: "",
@@ -39,6 +40,8 @@ export default function ZohoSection({ t, onOpenTicket }) {
     zoho_task_id: "",
     zoho_task_key: "",
     zoho_task_name: "",
+    zoho_owner_id: "",
+    zoho_owner_name: "",
   });
 
   const visibleTickets = useMemo(() => {
@@ -73,6 +76,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
         setZohoProjects(projectsData?.projects || []);
       } else {
         setZohoProjects([]);
+        setZohoUsers([]);
       }
     } catch (e) {
       setError(e?.message || "HTTP error");
@@ -89,6 +93,23 @@ export default function ZohoSection({ t, onOpenTicket }) {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    async function loadProjectUsers() {
+      if (!form.zoho_project_id) {
+        setZohoUsers([]);
+        return;
+      }
+      try {
+        const data = await ZohoAPI.users(form.zoho_project_id);
+        setZohoUsers(data?.users || []);
+      } catch (e) {
+        setZohoUsers([]);
+        setError(e?.message || "Failed to load Zoho users");
+      }
+    }
+    loadProjectUsers();
+  }, [form.zoho_project_id]);
 
   async function connectZoho() {
     try {
@@ -115,6 +136,8 @@ export default function ZohoSection({ t, onOpenTicket }) {
         issue_id: null,
         category_id: null,
         description: "",
+        zoho_owner_id: form.zoho_owner_id || null,
+        zoho_owner_name: form.zoho_owner_name || null,
       });
       setForm((prev) => ({
         ...prev,
@@ -206,12 +229,29 @@ export default function ZohoSection({ t, onOpenTicket }) {
                 zoho_task_id: "",
                 zoho_task_key: "",
                 zoho_task_name: "",
+                zoho_owner_id: "",
+                zoho_owner_name: "",
               }));
             }}
             disabled={!zohoStatus.connected}
           >
             <option value="">{t("chooseZohoProject")}</option>
             {zohoProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          </select>
+          <select
+            value={form.zoho_owner_id}
+            onChange={(e) => {
+              const owner = zohoUsers.find((item) => item.id === e.target.value);
+              setForm((prev) => ({
+                ...prev,
+                zoho_owner_id: e.target.value,
+                zoho_owner_name: owner?.name || "",
+              }));
+            }}
+            disabled={!form.zoho_project_id}
+          >
+            <option value="">Zoho executor</option>
+            {zohoUsers.map((user) => <option key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ""}</option>)}
           </select>
           <input
             value={form.zoho_task_name}
@@ -250,6 +290,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
                   <div style={{ marginTop: 6, opacity: 0.85, fontSize: 13, display: "grid", gap: 2 }}>
                     <div>{t("linkedZohoProject")}: {ticket.zoho_project_name || "—"}</div>
                     <div>{t("linkedZohoTask")}: {ticket.zoho_task_key ? `${ticket.zoho_task_key} · ` : ""}{ticket.zoho_task_name || "—"}</div>
+                    <div>Zoho executor: {ticket.zoho_owner_name || "—"}</div>
                     <div>{t("zohoSyncStatus")}: {ticket.zoho_sync_status || "local_only"}</div>
                     <div>{t("timer")}: {formatDuration(runningSeconds)}</div>
                   </div>
