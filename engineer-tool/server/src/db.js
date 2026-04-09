@@ -56,6 +56,13 @@ async function migrate(p) {
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS spent_experience INTEGER NOT NULL DEFAULT 0;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname_color TEXT;`);
   await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS badge_icon TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_account_id TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_account_email TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_refresh_token TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_access_token TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_token_expires_at TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_portal_name TEXT;`);
+  await p.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoho_connected_at TEXT;`);
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -98,6 +105,17 @@ async function migrate(p) {
       completed_at TEXT
     );
   `);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_project_id TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_project_name TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_task_id TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_task_key TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_task_name TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_sync_status TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_last_sync_at TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS zoho_last_sync_error TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS timer_started_at TEXT;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS timer_elapsed_seconds INTEGER NOT NULL DEFAULT 0;`);
+  await p.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS synced_by_user_id TEXT;`);
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS ticket_steps (
@@ -156,6 +174,9 @@ async function migrate(p) {
   );
   await p.query(
     `CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);`
+  );
+  await p.query(
+    `CREATE INDEX IF NOT EXISTS idx_tickets_zoho_project_id ON tickets(zoho_project_id);`
   );
   await p.query(
     `CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);`

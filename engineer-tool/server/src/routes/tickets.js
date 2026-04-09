@@ -3,6 +3,7 @@ import express from "express";
 import { getDb } from "../db.js";
 import { uid } from "../utils/uid.js";
 import { createAuditLog, createNotification } from "../utils/activity.js";
+import { completeZohoTask, createZohoTask, createZohoTimeLog } from "../utils/zoho.js";
 import PDFDocument from "pdfkit";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -11,6 +12,24 @@ const router = express.Router();
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+async function getCurrentUser(db, userId) {
+  const q = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
+  return q.rows?.[0] || null;
+}
+
+function computeElapsedSeconds(ticket) {
+  const base = Math.max(0, Number(ticket?.timer_elapsed_seconds) || 0);
+  if (!ticket?.timer_started_at) return base;
+  const started = Date.parse(ticket.timer_started_at);
+  if (!started) return base;
+  return base + Math.max(0, Math.floor((Date.now() - started) / 1000));
+}
+
+async function getTicketById(db, id) {
+  const q = await db.query(`SELECT * FROM tickets WHERE id=$1`, [id]);
+  return q.rows?.[0] || null;
 }
 
 /**
@@ -39,7 +58,10 @@ router.get("/", async (req, res) => {
         u.first_name AS engineer_first_name, u.last_name AS engineer_last_name, u.email AS engineer_email,
         t.created_by_user_id,
         cu.first_name AS creator_first_name, cu.last_name AS creator_last_name, cu.email AS creator_email,
-        t.created_at, t.completed_at
+        t.created_at, t.completed_at,
+        t.zoho_project_id, t.zoho_project_name, t.zoho_task_id, t.zoho_task_key, t.zoho_task_name,
+        t.zoho_sync_status, t.zoho_last_sync_at, t.zoho_last_sync_error,
+        t.timer_started_at, t.timer_elapsed_seconds
       FROM tickets t
       LEFT JOIN categories c ON c.id = t.category_id
       LEFT JOIN issues i ON i.id = t.issue_id
@@ -107,7 +129,7 @@ router.post("/:id/bootstrap-steps", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   const db = getDb();
-  const { site, visit_date, engineer_user_id, category_id, issue_id, issue_text, description } =
+  const { site, visit_date, engineer_user_id, category_id, issue_id, issue_text, description, zoho_project_id, zoho_project_name, zoho_task_id, zoho_task_key, zoho_task_name } =
     req.body ?? {};
 
   // Client sends `description`, older API uses `issue_text`.
@@ -117,14 +139,38 @@ router.post("/", async (req, res) => {
   const createdAt = nowIso();
 
   try {
+    let zohoTaskId = zoho_task_id ?? null;
+    let zohoTaskKey = zoho_task_key ?? null;
+    let zohoTaskName = zoho_task_name ?? null;
+    let zohoSyncStatus = null;
+
+    if (zoho_project_id && !zohoTaskId) {
+      const actor = await getCurrentUser(db, req.user.id);
+      if (!actor?.zoho_refresh_token) {
+        return res.status(400).json({ error: "Connect your Zoho account first" });
+      }
+      const createdTask = await createZohoTask(db, actor, zoho_project_id, {
+        name: site || "New Zoho task",
+        description: text || "",
+      });
+      zohoTaskId = createdTask.id;
+      zohoTaskKey = createdTask.key;
+      zohoTaskName = createdTask.name;
+      zohoSyncStatus = "task_created";
+    } else if (zoho_project_id && zohoTaskId) {
+      zohoSyncStatus = "linked_existing_task";
+    }
+
     await db.query(
       `
       INSERT INTO tickets (
         id, status, site, visit_date,
         category_id, issue_id, issue_text,
         engineer_user_id, created_by_user_id,
-        created_at, completed_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        created_at, completed_at,
+        zoho_project_id, zoho_project_name, zoho_task_id, zoho_task_key, zoho_task_name, zoho_sync_status,
+        timer_started_at, timer_elapsed_seconds
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
       `,
       [
         id,
@@ -138,6 +184,14 @@ router.post("/", async (req, res) => {
         req.user?.id ?? null,
         createdAt,
         null,
+        zoho_project_id ?? null,
+        zoho_project_name ?? null,
+        zohoTaskId,
+        zohoTaskKey,
+        zohoTaskName,
+        zohoSyncStatus,
+        null,
+        0,
       ]
     );
 
@@ -203,6 +257,123 @@ router.put("/:id/status", async (req, res) => {
   } catch (e) {
     console.error("TICKETS STATUS ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/:id/timer/start", async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  try {
+    const ticket = await getTicketById(db, id);
+    if (!ticket) return res.status(404).json({ error: "not found" });
+    if (ticket.timer_started_at) return res.json({ ticket: { ...ticket, timer_elapsed_seconds: computeElapsedSeconds(ticket) } });
+
+    const startedAt = nowIso();
+    await db.query(`UPDATE tickets SET timer_started_at=$1 WHERE id=$2`, [startedAt, id]);
+    const updated = await getTicketById(db, id);
+    return res.json({ ticket: { ...updated, timer_elapsed_seconds: computeElapsedSeconds(updated) } });
+  } catch (e) {
+    console.error("TICKET TIMER START ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/:id/timer/stop", async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  try {
+    const ticket = await getTicketById(db, id);
+    if (!ticket) return res.status(404).json({ error: "not found" });
+
+    const nextElapsed = computeElapsedSeconds(ticket);
+    await db.query(`UPDATE tickets SET timer_started_at=NULL, timer_elapsed_seconds=$1 WHERE id=$2`, [nextElapsed, id]);
+    const updated = await getTicketById(db, id);
+    return res.json({ ticket: { ...updated, timer_elapsed_seconds: computeElapsedSeconds(updated) } });
+  } catch (e) {
+    console.error("TICKET TIMER STOP ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/:id/zoho-close", async (req, res) => {
+  const db = getDb();
+  const { id } = req.params;
+
+  try {
+    const ticket = await getTicketById(db, id);
+    if (!ticket) return res.status(404).json({ error: "not found" });
+    if (!ticket.zoho_project_id) return res.status(400).json({ error: "Ticket is not linked to a Zoho project" });
+
+    const actor = await getCurrentUser(db, req.user.id);
+    if (!actor?.zoho_refresh_token) {
+      return res.status(400).json({ error: "Connect your Zoho account first" });
+    }
+
+    let zohoTaskId = ticket.zoho_task_id;
+    let zohoTaskKey = ticket.zoho_task_key;
+    let zohoTaskName = ticket.zoho_task_name;
+
+    if (!zohoTaskId) {
+      const createdTask = await createZohoTask(db, actor, ticket.zoho_project_id, {
+        name: ticket.site || "New Zoho task",
+        description: ticket.issue_text || "",
+      });
+      zohoTaskId = createdTask.id;
+      zohoTaskKey = createdTask.key;
+      zohoTaskName = createdTask.name;
+    }
+
+    const elapsedSeconds = computeElapsedSeconds(ticket);
+    if (elapsedSeconds > 0) {
+      await createZohoTimeLog(
+        db,
+        actor,
+        ticket.zoho_project_id,
+        zohoTaskId,
+        elapsedSeconds,
+        ticket.site ? `Engineer Tool: ${ticket.site}` : "Engineer Tool time log"
+      );
+    }
+    await completeZohoTask(db, actor, ticket.zoho_project_id, zohoTaskId);
+
+    const completedAt = nowIso();
+    await db.query(
+      `UPDATE tickets
+       SET status='closed',
+           completed_at=$1,
+           timer_started_at=NULL,
+           timer_elapsed_seconds=$2,
+           zoho_task_id=$3,
+           zoho_task_key=$4,
+           zoho_task_name=$5,
+           zoho_sync_status='closed_synced',
+           zoho_last_sync_at=$6,
+           zoho_last_sync_error=NULL,
+           synced_by_user_id=$7
+       WHERE id=$8`,
+      [completedAt, elapsedSeconds, zohoTaskId, zohoTaskKey, zohoTaskName, completedAt, req.user.id, id]
+    );
+
+    await createAuditLog(db, {
+      actorUserId: req.user?.id ?? null,
+      action: "ticket.zoho.closed",
+      entityType: "ticket",
+      entityId: id,
+      summary: `Closed ticket ${id} and synced it to Zoho`,
+      details: JSON.stringify({ zoho_project_id: ticket.zoho_project_id, zoho_task_id: zohoTaskId, elapsedSeconds }),
+    });
+
+    const updated = await getTicketById(db, id);
+    return res.json({ ticket: { ...updated, timer_elapsed_seconds: computeElapsedSeconds(updated) } });
+  } catch (e) {
+    console.error("TICKET ZOHO CLOSE ERROR:", e);
+    await db.query(
+      `UPDATE tickets SET zoho_sync_status='sync_failed', zoho_last_sync_error=$1 WHERE id=$2`,
+      [e?.message || "Zoho sync failed", id]
+    );
+    return res.status(500).json({ error: e?.message || "Failed to sync with Zoho" });
   }
 });
 

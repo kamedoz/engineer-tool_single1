@@ -5,6 +5,7 @@ import {
   TicketsAPI,
   UsersAPI,
   ChatAPI,
+  ZohoAPI,
 } from "./api.js";
 import WikiSection from "./components/WikiSection.jsx";
 import ProfileSection from "./components/ProfileSection.jsx";
@@ -13,6 +14,7 @@ import AdminUsersSection from "./components/AdminUsersSection.jsx";
 import DashboardSection from "./components/DashboardSection.jsx";
 import NotificationsSection from "./components/NotificationsSection.jsx";
 import HistorySection from "./components/HistorySection.jsx";
+import ZohoSection from "./components/ZohoSection.jsx";
 
 /* ── helpers ── */
 function fmtISODateInput(value) {
@@ -25,6 +27,14 @@ function fmtISODateInput(value) {
 
 function normalizeStepsText(stepsText) {
   return (stepsText || "").split("\n").map((x) => x.trim()).filter(Boolean);
+}
+
+function formatDuration(totalSeconds) {
+  const safe = Math.max(0, Number(totalSeconds) || 0);
+  const hours = String(Math.floor(safe / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((safe % 3600) / 60)).padStart(2, "0");
+  const seconds = String(safe % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
 }
 
 /* ── Theme hook ── */
@@ -378,7 +388,16 @@ export default function Workspace({ me, onLogout, onRefreshMe, t, language, setL
     category_id: "",
     issue_id: "",
     description: "",
+    zoho_project_id: "",
+    zoho_project_name: "",
+    zoho_task_id: "",
+    zoho_task_key: "",
+    zoho_task_name: "",
   });
+  const [zohoStatus, setZohoStatus] = useState({ connected: false, portal_name: "", account_email: "" });
+  const [zohoProjects, setZohoProjects] = useState([]);
+  const [zohoTasks, setZohoTasks] = useState([]);
+  const [zohoLoading, setZohoLoading] = useState(false);
 
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newIssue, setNewIssue] = useState({ category_id: "", title: "", description: "", steps: "", solution: "" });
@@ -420,6 +439,45 @@ export default function Workspace({ me, onLogout, onRefreshMe, t, language, setL
     } catch (e) { setError(e?.message || "HTTP error"); }
   }
 
+  async function refreshZohoData() {
+    setError("");
+    setZohoLoading(true);
+    try {
+      const status = await ZohoAPI.status();
+      setZohoStatus(status || { connected: false, portal_name: "", account_email: "" });
+      if (status?.connected) {
+        const projectData = await ZohoAPI.projects();
+        setZohoProjects(projectData?.projects || []);
+      } else {
+        setZohoProjects([]);
+        setZohoTasks([]);
+      }
+    } catch (e) {
+      setZohoProjects([]);
+      setZohoTasks([]);
+      setError(e?.message || "Zoho error");
+    } finally {
+      setZohoLoading(false);
+    }
+  }
+
+  async function loadZohoTasks(projectId) {
+    if (!projectId) {
+      setZohoTasks([]);
+      return;
+    }
+    setZohoLoading(true);
+    try {
+      const data = await ZohoAPI.tasks(projectId);
+      setZohoTasks(data?.tasks || []);
+    } catch (e) {
+      setZohoTasks([]);
+      setError(e?.message || "Failed to load Zoho tasks");
+    } finally {
+      setZohoLoading(false);
+    }
+  }
+
   async function refreshChatThreads() {
     setError("");
     try {
@@ -440,8 +498,38 @@ export default function Workspace({ me, onLogout, onRefreshMe, t, language, setL
     refreshAll();
     refreshTickets();
     refreshChatThreads();
+    refreshZohoData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const state = params.get("zoho");
+    const message = params.get("message");
+    if (!state) return;
+
+    if (state === "connected") {
+      refreshZohoData();
+      onRefreshMe?.();
+      setTab("tickets");
+    }
+    if (state === "error" && message) setError(decodeURIComponent(message));
+
+    params.delete("zoho");
+    params.delete("message");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (ticketForm.zoho_project_id) {
+      loadZohoTasks(ticketForm.zoho_project_id);
+    } else {
+      setZohoTasks([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketForm.zoho_project_id]);
 
   /* ── KB handlers ── */
   async function createCategory() {
@@ -496,11 +584,11 @@ export default function Workspace({ me, onLogout, onRefreshMe, t, language, setL
 
   /* ── Ticket handlers ── */
   async function createTicket() {
-    if (!ticketForm.category_id) { setError("category_id is required"); return; }
+    if (!ticketForm.category_id && !ticketForm.zoho_project_id) { setError("category_id is required"); return; }
     if (!ticketForm.description.trim()) { setError("Описание проблемы обязательно"); return; }
     try {
       await TicketsAPI.create({ ...ticketForm, engineer_user_id: ticketForm.engineer_user_id || null, issue_id: ticketForm.issue_id || null, description: ticketForm.description.trim() });
-      setTicketForm((p) => ({ ...p, description: "" }));
+      setTicketForm((p) => ({ ...p, description: "", zoho_task_id: "", zoho_task_key: "", zoho_task_name: "" }));
       await refreshTickets();
     } catch (e) { setError(e?.message || "HTTP error"); }
   }
@@ -556,6 +644,33 @@ export default function Workspace({ me, onLogout, onRefreshMe, t, language, setL
   }
 
   /* ── Computed ── */
+  async function startTicketTimer(ticketId) {
+    try {
+      const data = await TicketsAPI.startTimer(ticketId);
+      const next = data?.ticket || data;
+      setTickets((prev) => prev.map((item) => (item.id === ticketId ? { ...item, ...next } : item)));
+      setActiveTicket((prev) => (prev?.id === ticketId ? { ...prev, ...next } : prev));
+    } catch (e) { setError(e?.message || "Timer start error"); }
+  }
+
+  async function stopTicketTimer(ticketId) {
+    try {
+      const data = await TicketsAPI.stopTimer(ticketId);
+      const next = data?.ticket || data;
+      setTickets((prev) => prev.map((item) => (item.id === ticketId ? { ...item, ...next } : item)));
+      setActiveTicket((prev) => (prev?.id === ticketId ? { ...prev, ...next } : prev));
+    } catch (e) { setError(e?.message || "Timer stop error"); }
+  }
+
+  async function closeTicketWithZoho(ticketId) {
+    try {
+      const data = await TicketsAPI.closeWithZoho(ticketId);
+      const next = data?.ticket || data;
+      setTickets((prev) => prev.map((item) => (item.id === ticketId ? { ...item, ...next } : item)));
+      setActiveTicket((prev) => (prev?.id === ticketId ? { ...prev, ...next } : prev));
+    } catch (e) { setError(e?.message || "Zoho sync error"); }
+  }
+
   const filteredIssuesForCategory = useMemo(() => {
     const cid = ticketForm.category_id;
     if (!cid) return issues;
@@ -669,8 +784,10 @@ export default function Workspace({ me, onLogout, onRefreshMe, t, language, setL
 
           {tab === "history" && <HistorySection t={t} />}
 
+          {tab === "tickets" && <ZohoSection t={t} onOpenTicket={setActiveTicket} />}
+
           {/* ── TICKETS ── */}
-          {tab === "tickets" && (
+          {tab === "tickets-legacy" && (
             <div style={{ display: "grid", gap: 12 }}>
               <h2 style={{ margin: 0 }}>Заявки</h2>
 

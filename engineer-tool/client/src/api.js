@@ -90,6 +90,9 @@ export const TicketsAPI = {
   notes: (id) => request("GET", `/api/tickets/${id}/notes`),
   addNote: (id, note_text) => request("POST", `/api/tickets/${id}/notes`, { note_text }),
   setStatus: (id, status) => request("PUT", `/api/tickets/${id}/status`, { status }),
+  startTimer: (id) => request("POST", `/api/tickets/${id}/timer/start`),
+  stopTimer: (id) => request("POST", `/api/tickets/${id}/timer/stop`),
+  closeWithZoho: (id) => request("POST", `/api/tickets/${id}/zoho-close`),
   // Download report (authenticated) as Blob
   downloadReport: async (id) => {
     const res = await fetch(`${API_BASE}/api/tickets/${id}/report.pdf`, {
@@ -147,4 +150,12 @@ export const NotificationsAPI = {
 
 export const HistoryAPI = {
   list: () => request("GET", "/api/history"),
+};
+
+export const ZohoAPI = {
+  status: () => request("GET", "/api/zoho/status"),
+  connectUrl: () => request("GET", "/api/zoho/connect"),
+  disconnect: () => request("POST", "/api/zoho/disconnect"),
+  projects: () => request("GET", "/api/zoho/projects"),
+  tasks: (projectId) => request("GET", `/api/zoho/projects/${projectId}/tasks`),
 };

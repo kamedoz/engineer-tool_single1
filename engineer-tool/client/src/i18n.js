@@ -219,7 +219,30 @@ export const translations = {
 
 export function translate(language, key, params = {}) {
   const dict = translations[language] || translations.en;
-  let value = dict[key] ?? translations.en[key] ?? key;
+  const dynamic = {
+    tickets: "Zoho",
+    connectZoho: language === "ru" ? "Подключить Zoho" : "Connect Zoho",
+    disconnectZoho: language === "ru" ? "Отключить Zoho" : "Disconnect Zoho",
+    zohoConnected: language === "ru" ? "Аккаунт Zoho подключён" : "Zoho account connected",
+    zohoNotConnected: language === "ru" ? "Аккаунт Zoho пока не подключён." : "Zoho account is not connected yet.",
+    zohoProjects: language === "ru" ? "Проекты Zoho" : "Zoho projects",
+    zohoTasks: language === "ru" ? "Задачи Zoho" : "Zoho tasks",
+    chooseZohoProject: language === "ru" ? "Выберите проект Zoho" : "Choose Zoho project",
+    chooseZohoTask: language === "ru" ? "Выберите задачу Zoho" : "Choose Zoho task",
+    createAndSyncTask: language === "ru" ? "Создать и связать задачу" : "Create and sync task",
+    syncAndCloseZoho: language === "ru" ? "Синхронизировать часы и закрыть в Zoho" : "Sync hours and close in Zoho",
+    startTimer: language === "ru" ? "Старт таймера" : "Start timer",
+    stopTimer: language === "ru" ? "Стоп таймера" : "Stop timer",
+    timer: language === "ru" ? "Таймер" : "Timer",
+    zohoPortal: language === "ru" ? "Портал Zoho" : "Zoho portal",
+    zohoSyncStatus: language === "ru" ? "Синхронизация Zoho" : "Zoho sync",
+    localTaskCreated: language === "ru" ? "Локальная задача создана" : "Local task created",
+    zohoConnectHint: language === "ru" ? "Подключите свой Zoho-аккаунт, чтобы загружать доступные именно вам проекты." : "Connect your Zoho account to load projects available to this user.",
+    zohoSectionIntro: language === "ru" ? "Создавайте локальные задачи, связанные с проектами Zoho, ведите время здесь и закрывайте их с обратной синхронизацией в Zoho." : "Create local tasks linked to Zoho projects, track time here, then close and sync the result back to Zoho.",
+    linkedZohoProject: language === "ru" ? "Связанный проект Zoho" : "Linked Zoho project",
+    linkedZohoTask: language === "ru" ? "Связанная задача Zoho" : "Linked Zoho task",
+  };
+  let value = dynamic[key] ?? dict[key] ?? translations.en[key] ?? key;
   Object.entries(params).forEach(([param, replacement]) => {
     value = value.replace(`{${param}}`, String(replacement));
   });

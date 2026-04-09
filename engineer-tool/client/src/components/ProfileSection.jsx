@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { UsersAPI } from "../api.js";
+import { UsersAPI, ZohoAPI } from "../api.js";
 
 const COLOR_OPTIONS = [
   "#ffffff",
@@ -86,6 +86,31 @@ export default function ProfileSection({ me, onMeRefresh, t }) {
     }
   }
 
+  async function connectZoho() {
+    setSaving(true);
+    setError("");
+    try {
+      const data = await ZohoAPI.connectUrl();
+      window.location.href = data.url;
+    } catch (e) {
+      setError(e?.message || "Failed to start Zoho connection");
+      setSaving(false);
+    }
+  }
+
+  async function disconnectZoho() {
+    setSaving(true);
+    setError("");
+    try {
+      await ZohoAPI.disconnect();
+      await onMeRefresh?.();
+    } catch (e) {
+      setError(e?.message || "Failed to disconnect Zoho");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const nextLevelXp = Math.min(100, user.level) * 20;
 
   return (
@@ -160,6 +185,32 @@ export default function ProfileSection({ me, onMeRefresh, t }) {
         </div>
 
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12, display: "grid", gap: 12 }}>
+          <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>{t("zohoPortal")}</div>
+                <div style={{ opacity: 0.75, fontSize: 13, marginTop: 4 }}>
+                  {user.zoho_connected
+                    ? `${t("zohoConnected")}${user.zoho_account_email ? `: ${user.zoho_account_email}` : ""}`
+                    : t("zohoNotConnected")}
+                </div>
+                <div style={{ opacity: 0.65, fontSize: 12, marginTop: 4 }}>
+                  {user.zoho_portal_name || "simplehomebyliis"}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {user.zoho_connected ? (
+                  <button onClick={disconnectZoho} disabled={saving}>{t("disconnectZoho")}</button>
+                ) : (
+                  <button onClick={connectZoho} disabled={saving}>{t("connectZoho")}</button>
+                )}
+              </div>
+            </div>
+            {!user.zoho_connected ? (
+              <div style={{ opacity: 0.75, fontSize: 13 }}>{t("zohoConnectHint")}</div>
+            ) : null}
+          </div>
+
           <div>
             <div style={{ fontWeight: 700 }}>Customization shop</div>
             <div style={{ opacity: 0.75, fontSize: 13, marginTop: 4 }}>

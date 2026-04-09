@@ -16,6 +16,7 @@ import wikiRoutes from "./routes/wiki.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import notificationRoutes from "./routes/notifications.js";
 import historyRoutes from "./routes/history.js";
+import zohoRoutes from "./routes/zoho.js";
 
 dotenv.config();
 
@@ -113,6 +114,7 @@ app.use("/api/wiki", authRequired, wikiRoutes);
 app.use("/api/dashboard", authRequired, dashboardRoutes);
 app.use("/api/notifications", authRequired, notificationRoutes);
 app.use("/api/history", authRequired, historyRoutes);
+app.use("/api/zoho", zohoRoutes);
 
 
 

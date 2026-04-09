@@ -100,6 +100,10 @@ export function serializeUser(user) {
     level: getUserLevel(user.experience),
     nickname_color: user.nickname_color || "",
     badge_icon: user.badge_icon || "",
+    zoho_connected: Boolean(user.zoho_refresh_token),
+    zoho_account_email: user.zoho_account_email || "",
+    zoho_portal_name: user.zoho_portal_name || "",
+    zoho_connected_at: user.zoho_connected_at || "",
     created_at: user.created_at,
     display_name: getDisplayName(user),
   };
