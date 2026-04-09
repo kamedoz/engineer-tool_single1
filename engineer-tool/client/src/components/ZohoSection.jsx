@@ -258,15 +258,12 @@ export default function ZohoSection({ t, onOpenTicket }) {
 
           <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>3. Впишите название вашей задачи</div>
-            <div className="grid-ticket-form">
-              <input value={form.site} onChange={(e) => setForm((prev) => ({ ...prev, site: e.target.value }))} placeholder={t("site")} />
-              <input
-                value={form.zoho_task_name}
-                onChange={(e) => setForm((prev) => ({ ...prev, zoho_task_name: e.target.value, zoho_task_id: "", zoho_task_key: "" }))}
-                placeholder="Впишите название вашей задачи"
-                disabled={!form.zoho_project_id}
-              />
-            </div>
+            <input
+              value={form.zoho_task_name}
+              onChange={(e) => setForm((prev) => ({ ...prev, zoho_task_name: e.target.value, zoho_task_id: "", zoho_task_key: "" }))}
+              placeholder="Впишите название вашей задачи"
+              disabled={!form.zoho_project_id}
+            />
           </div>
 
           <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
