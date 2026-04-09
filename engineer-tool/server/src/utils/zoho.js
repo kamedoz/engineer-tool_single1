@@ -177,17 +177,32 @@ export async function fetchZohoTasks(db, user, projectId) {
 
 export async function fetchZohoProjectUsers(db, user, projectId) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
-  const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/users/`);
-  const users = Array.isArray(data?.users) ? data.users : Array.isArray(data) ? data : [];
-  return users.map((member) => ({
-    id: String(member.id || member.id_string || member.user_id || member.zpuid || ""),
-    name:
-      member.name ||
-      `${member.first_name || ""} ${member.last_name || ""}`.trim() ||
-      member.email ||
-      "Unnamed user",
-    email: member.email || "",
-  }));
+  const [projectData, portalData] = await Promise.all([
+    zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/users/`),
+    zohoApi(db, user, "GET", `/portal/${portalName}/users/`),
+  ]);
+  const projectUsers = Array.isArray(projectData?.users) ? projectData.users : Array.isArray(projectData) ? projectData : [];
+  const portalUsers = Array.isArray(portalData?.users) ? portalData.users : Array.isArray(portalData) ? portalData : [];
+  const portalMap = new Map(
+    portalUsers.map((member) => [
+      String(member.email || "").trim().toLowerCase(),
+      String(member.id || member.id_string || member.user_id || member.zpuid || ""),
+    ])
+  );
+
+  return projectUsers.map((member) => {
+    const email = String(member.email || "").trim();
+    return {
+      id: String(member.id || member.id_string || member.user_id || member.zpuid || ""),
+      portal_id: portalMap.get(email.toLowerCase()) || "",
+      name:
+        member.name ||
+        `${member.first_name || ""} ${member.last_name || ""}`.trim() ||
+        email ||
+        "Unnamed user",
+      email,
+    };
+  });
 }
 
 export async function createZohoTask(db, user, projectId, payload) {
@@ -225,19 +240,22 @@ export async function completeZohoTask(db, user, projectId, taskId) {
   throw lastError || new Error("Failed to close Zoho task");
 }
 
-export async function createZohoTimeLog(db, user, projectId, taskId, secondsSpent, noteText = "", ownerId = "") {
+export async function createZohoTimeLog(db, user, projectId, taskId, secondsSpent, noteText = "", ownerId = "", logDate = null) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
   const totalMinutes = Math.max(0, Math.round((Number(secondsSpent) || 0) / 60));
   if (!totalMinutes) return null;
 
-  const startedAt = new Date();
-  const date = `${String(startedAt.getMonth() + 1).padStart(2, "0")}-${String(startedAt.getDate()).padStart(2, "0")}-${startedAt.getFullYear()}`;
+  const sourceDate = logDate ? new Date(logDate) : new Date();
+  const safeDate = Number.isNaN(sourceDate.getTime()) ? new Date() : sourceDate;
+  const date = `${String(safeDate.getMonth() + 1).padStart(2, "0")}-${String(safeDate.getDate()).padStart(2, "0")}-${safeDate.getFullYear()}`;
   const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
   const minutes = String(totalMinutes % 60).padStart(2, "0");
   const hoursDisplay = `${hours}:${minutes}`;
   const payloadVariants = [
     { date, bill_status: "Non Billable", hours: hoursDisplay, notes: noteText, ...(ownerId ? { owner: ownerId } : {}) },
     { date, bill_status: "Billable", hours: hoursDisplay, notes: noteText, ...(ownerId ? { owner: ownerId } : {}) },
+    { date, bill_status: "Non Billable", hours: hoursDisplay, notes: noteText },
+    { date, bill_status: "Billable", hours: hoursDisplay, notes: noteText },
   ];
 
   let lastError = null;

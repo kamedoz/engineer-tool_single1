@@ -41,6 +41,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
     zoho_task_key: "",
     zoho_task_name: "",
     zoho_owner_id: "",
+    zoho_owner_portal_id: "",
     zoho_owner_name: "",
   });
 
@@ -137,6 +138,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
         category_id: null,
         description: "",
         zoho_owner_id: form.zoho_owner_id || null,
+        zoho_owner_portal_id: form.zoho_owner_portal_id || null,
         zoho_owner_name: form.zoho_owner_name || null,
       });
       setForm((prev) => ({
@@ -225,6 +227,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
                     zoho_task_key: "",
                     zoho_task_name: "",
                     zoho_owner_id: "",
+                    zoho_owner_portal_id: "",
                     zoho_owner_name: "",
                   }));
                 }}
@@ -246,6 +249,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
                 setForm((prev) => ({
                   ...prev,
                   zoho_owner_id: e.target.value,
+                  zoho_owner_portal_id: owner?.portal_id || "",
                   zoho_owner_name: owner?.name || "",
                 }));
               }}

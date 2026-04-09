@@ -59,7 +59,7 @@ router.get("/", async (req, res) => {
         t.created_by_user_id,
         cu.first_name AS creator_first_name, cu.last_name AS creator_last_name, cu.email AS creator_email,
         t.created_at, t.completed_at,
-        t.zoho_project_id, t.zoho_project_name, t.zoho_task_id, t.zoho_task_key, t.zoho_task_name, t.zoho_owner_id, t.zoho_owner_name,
+        t.zoho_project_id, t.zoho_project_name, t.zoho_task_id, t.zoho_task_key, t.zoho_task_name, t.zoho_owner_id, t.zoho_owner_portal_id, t.zoho_owner_name,
         t.zoho_sync_status, t.zoho_last_sync_at, t.zoho_last_sync_error,
         t.timer_started_at, t.timer_elapsed_seconds
       FROM tickets t
@@ -129,7 +129,7 @@ router.post("/:id/bootstrap-steps", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   const db = getDb();
-  const { site, visit_date, engineer_user_id, category_id, issue_id, issue_text, description, zoho_project_id, zoho_project_name, zoho_task_id, zoho_task_key, zoho_task_name, zoho_owner_id, zoho_owner_name } =
+  const { site, visit_date, engineer_user_id, category_id, issue_id, issue_text, description, zoho_project_id, zoho_project_name, zoho_task_id, zoho_task_key, zoho_task_name, zoho_owner_id, zoho_owner_portal_id, zoho_owner_name } =
     req.body ?? {};
 
   // Client sends `description`, older API uses `issue_text`.
@@ -169,9 +169,9 @@ router.post("/", async (req, res) => {
         category_id, issue_id, issue_text,
         engineer_user_id, created_by_user_id,
         created_at, completed_at,
-        zoho_project_id, zoho_project_name, zoho_task_id, zoho_task_key, zoho_task_name, zoho_owner_id, zoho_owner_name, zoho_sync_status,
+        zoho_project_id, zoho_project_name, zoho_task_id, zoho_task_key, zoho_task_name, zoho_owner_id, zoho_owner_portal_id, zoho_owner_name, zoho_sync_status,
         timer_started_at, timer_elapsed_seconds
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
       `,
       [
         id,
@@ -191,6 +191,7 @@ router.post("/", async (req, res) => {
         zohoTaskKey,
         zohoTaskName,
         zoho_owner_id ?? null,
+        zoho_owner_portal_id ?? null,
         zoho_owner_name ?? null,
         zohoSyncStatus,
         null,
@@ -338,7 +339,8 @@ router.post("/:id/zoho-close", async (req, res) => {
         zohoTaskId,
         elapsedSeconds,
         ticket.site ? `Engineer Tool: ${ticket.site}` : "Engineer Tool time log",
-        ticket.zoho_owner_id || ""
+        ticket.zoho_owner_portal_id || ticket.zoho_owner_id || "",
+        ticket.visit_date || completedAt
       );
     }
     await completeZohoTask(db, actor, ticket.zoho_project_id, zohoTaskId);
