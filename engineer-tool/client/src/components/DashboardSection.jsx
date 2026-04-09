@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { DashboardAPI } from "../api.js";
 
+function formatDuration(totalSeconds) {
+  const safe = Math.max(0, Number(totalSeconds) || 0);
+  const hours = String(Math.floor(safe / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((safe % 3600) / 60)).padStart(2, "0");
+  const seconds = String(safe % 60).padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
+
 export default function DashboardSection({ t }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [now, setNow] = useState(Date.now());
 
   async function load() {
     setError("");
@@ -15,6 +24,10 @@ export default function DashboardSection({ t }) {
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const cards = [
     { label: t("openTickets"), value: data?.open_tickets ?? 0 },
@@ -50,6 +63,37 @@ export default function DashboardSection({ t }) {
             </div>
           ))}
         </div>
+      </div>
+      <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 14 }}>
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Active Zoho tasks</div>
+        {(data?.active_zoho_tasks || []).length === 0 ? (
+          <div style={{ opacity: 0.75 }}>No active Zoho tasks.</div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {(data?.active_zoho_tasks || []).map((task) => {
+              const runningSeconds = task.timer_started_at
+                ? (Number(task.timer_elapsed_seconds) || 0) + Math.max(0, Math.floor((now - new Date(task.timer_started_at).getTime()) / 1000))
+                : Number(task.timer_elapsed_seconds) || 0;
+              const engineerName = `${task.engineer_first_name || ""} ${task.engineer_last_name || ""}`.trim() || task.engineer_email || "Unassigned";
+              return (
+                <div key={task.id} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontWeight: 700 }}>{task.site || task.zoho_task_name || "Zoho task"}</div>
+                    <div style={{ color: task.timer_started_at ? "#3ee37a" : "inherit", fontWeight: 700 }}>
+                      {formatDuration(runningSeconds)}
+                    </div>
+                  </div>
+                  <div style={{ opacity: 0.8, fontSize: 13, marginTop: 6 }}>
+                    {task.zoho_project_name || "Zoho project"}{task.zoho_task_key ? ` · ${task.zoho_task_key}` : ""}{task.zoho_task_name ? ` · ${task.zoho_task_name}` : ""}
+                  </div>
+                  <div style={{ opacity: 0.72, fontSize: 13, marginTop: 4 }}>
+                    {engineerName}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

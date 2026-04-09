@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { TicketsAPI, UsersAPI, CategoriesAPI, IssuesAPI, ZohoAPI } from "../api.js";
+import { TicketsAPI, UsersAPI, ZohoAPI } from "../api.js";
 
 function fmtISODateInput(value) {
   const d = value instanceof Date ? value : new Date(value);
@@ -21,14 +21,13 @@ export default function ZohoSection({ t, onOpenTicket }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [issues, setIssues] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [ticketFilter, setTicketFilter] = useState("open");
   const [ticketSearch, setTicketSearch] = useState("");
   const [zohoStatus, setZohoStatus] = useState({ connected: false, portal_name: "", account_email: "" });
   const [zohoProjects, setZohoProjects] = useState([]);
   const [zohoTasks, setZohoTasks] = useState([]);
+  const [now, setNow] = useState(Date.now());
   const [form, setForm] = useState({
     site: "",
     visit_date: fmtISODateInput(new Date()),
@@ -42,11 +41,6 @@ export default function ZohoSection({ t, onOpenTicket }) {
     zoho_task_key: "",
     zoho_task_name: "",
   });
-
-  const filteredIssues = useMemo(() => {
-    if (!form.category_id) return issues;
-    return issues.filter((item) => String(item.category_id) === String(form.category_id));
-  }, [issues, form.category_id]);
 
   const visibleTickets = useMemo(() => {
     const query = ticketSearch.trim().toLowerCase();
@@ -66,16 +60,12 @@ export default function ZohoSection({ t, onOpenTicket }) {
     setLoading(true);
     setError("");
     try {
-      const [usersData, categoryData, issueData, ticketData, zohoData] = await Promise.all([
+      const [usersData, ticketData, zohoData] = await Promise.all([
         UsersAPI.list(),
-        CategoriesAPI.list(),
-        IssuesAPI.list(),
         TicketsAPI.list(),
         ZohoAPI.status(),
       ]);
       setUsers(usersData?.users || usersData || []);
-      setCategories(categoryData?.categories || categoryData || []);
-      setIssues(issueData?.issues || issueData || []);
       setTickets(ticketData?.tickets || ticketData || []);
       setZohoStatus(zohoData || { connected: false, portal_name: "", account_email: "" });
 
@@ -95,6 +85,11 @@ export default function ZohoSection({ t, onOpenTicket }) {
 
   useEffect(() => {
     refreshBaseData();
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -124,24 +119,20 @@ export default function ZohoSection({ t, onOpenTicket }) {
   }
 
   async function createTask() {
-    if (!form.category_id && !form.zoho_project_id) {
-      setError("category_id is required");
-      return;
-    }
-    if (!form.description.trim()) {
-      setError("Problem description is required");
+    if (!form.site.trim()) {
+      setError("Object name is required");
       return;
     }
     try {
       await TicketsAPI.create({
         ...form,
         engineer_user_id: form.engineer_user_id || null,
-        issue_id: form.issue_id || null,
-        description: form.description.trim(),
+        issue_id: null,
+        category_id: null,
+        description: "",
       });
       setForm((prev) => ({
         ...prev,
-        description: "",
         zoho_task_id: "",
         zoho_task_key: "",
         zoho_task_name: "",
@@ -226,6 +217,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
                 ...prev,
                 zoho_project_id: e.target.value,
                 zoho_project_name: project?.name || "",
+                site: project?.name || "",
                 zoho_task_id: "",
                 zoho_task_key: "",
                 zoho_task_name: "",
@@ -253,22 +245,8 @@ export default function ZohoSection({ t, onOpenTicket }) {
             <option value="">{t("chooseZohoTask")}</option>
             {zohoTasks.map((task) => <option key={task.id} value={task.id}>{task.key ? `${task.key} · ` : ""}{task.name}</option>)}
           </select>
-          <select value={form.category_id} onChange={(e) => setForm((prev) => ({ ...prev, category_id: e.target.value, issue_id: "" }))}>
-            <option value="">{t("categoryRequired")}</option>
-            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-          <select value={form.issue_id} onChange={(e) => setForm((prev) => ({ ...prev, issue_id: e.target.value }))}>
-            <option value="">{t("issueTemplateOptional")}</option>
-            {filteredIssues.map((issue) => <option key={issue.id} value={issue.id}>{issue.title}</option>)}
-          </select>
           <button onClick={createTask}>{t("createAndSyncTask")}</button>
         </div>
-        <textarea
-          style={{ marginTop: 10, width: "100%", minHeight: 110 }}
-          value={form.description}
-          onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-          placeholder={t("describeProblem")}
-        />
       </div>
 
       <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
@@ -287,7 +265,7 @@ export default function ZohoSection({ t, onOpenTicket }) {
           <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
             {visibleTickets.map((ticket) => {
               const runningSeconds = ticket.timer_started_at
-                ? (Number(ticket.timer_elapsed_seconds) || 0) + Math.max(0, Math.floor((Date.now() - new Date(ticket.timer_started_at).getTime()) / 1000))
+                ? (Number(ticket.timer_elapsed_seconds) || 0) + Math.max(0, Math.floor((now - new Date(ticket.timer_started_at).getTime()) / 1000))
                 : Number(ticket.timer_elapsed_seconds) || 0;
               return (
                 <div key={ticket.id} onClick={() => onOpenTicket?.(ticket)} style={{ cursor: "pointer", border: "1px solid var(--border)", borderRadius: 10, padding: 10 }}>

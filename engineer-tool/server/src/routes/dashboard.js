@@ -28,6 +28,20 @@ r.get("/", async (req, res) => {
        WHERE deleted_at IS NULL AND created_at >= $1`,
       [new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()]
     );
+    const activeZohoQ = await db.query(
+      `SELECT
+          t.id, t.site, t.status, t.zoho_project_name, t.zoho_task_key, t.zoho_task_name,
+          t.timer_started_at, t.timer_elapsed_seconds,
+          u.first_name AS engineer_first_name, u.last_name AS engineer_last_name, u.email AS engineer_email
+       FROM tickets t
+       LEFT JOIN users u ON u.id = t.engineer_user_id
+       ${ticketsWhere ? `${ticketsWhere} AND` : `WHERE`} status='open' AND zoho_project_id IS NOT NULL
+       ORDER BY
+         CASE WHEN t.timer_started_at IS NOT NULL THEN 0 ELSE 1 END,
+         t.created_at DESC
+       LIMIT 5`,
+      ticketParams
+    );
 
     return res.json({
       open_tickets: openTicketsQ.rows?.[0]?.count || 0,
@@ -36,6 +50,7 @@ r.get("/", async (req, res) => {
       unread_notifications: unreadQ.rows?.[0]?.count || 0,
       recent_comments: commentsQ.rows?.[0]?.count || 0,
       top_contributors: topContributorsQ.rows || [],
+      active_zoho_tasks: activeZohoQ.rows || [],
     });
   } catch (e) {
     console.error("DASHBOARD ERROR:", e);
