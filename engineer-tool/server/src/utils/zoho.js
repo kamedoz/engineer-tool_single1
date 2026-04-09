@@ -128,13 +128,26 @@ async function zohoApi(db, user, method, path, body, query = {}) {
     }
   });
 
+  let payload;
+  let contentType = null;
+  if (body && method !== "GET") {
+    const params = new URLSearchParams();
+    Object.entries(body).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        params.set(key, String(value));
+      }
+    });
+    payload = params.toString();
+    contentType = "application/x-www-form-urlencoded;charset=UTF-8";
+  }
+
   return fetchZoho(url.toString(), {
     method,
     headers: {
       Authorization: `Zoho-oauthtoken ${token}`,
-      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(contentType ? { "Content-Type": contentType } : {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: payload,
   });
 }
 
@@ -199,14 +212,17 @@ export async function completeZohoTask(db, user, projectId, taskId) {
 
 export async function createZohoTimeLog(db, user, projectId, taskId, secondsSpent, noteText = "") {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
-  const hours = Math.max(0, Math.round((Number(secondsSpent) || 0) / 60) / 60);
-  if (!hours) return null;
+  const totalMinutes = Math.max(0, Math.round((Number(secondsSpent) || 0) / 60));
+  if (!totalMinutes) return null;
 
   const startedAt = new Date();
-  const date = `${startedAt.getFullYear()}-${String(startedAt.getMonth() + 1).padStart(2, "0")}-${String(startedAt.getDate()).padStart(2, "0")}`;
+  const date = `${String(startedAt.getMonth() + 1).padStart(2, "0")}-${String(startedAt.getDate()).padStart(2, "0")}-${startedAt.getFullYear()}`;
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  const hoursDisplay = `${hours}:${minutes}`;
   const payloadVariants = [
-    { date, hours, notes: noteText },
-    { date, hours, bill_status: "Non Billable", notes: noteText },
+    { date, bill_status: "Non Billable", hours: hoursDisplay, notes: noteText },
+    { date, bill_status: "Billable", hours: hoursDisplay, notes: noteText },
   ];
 
   let lastError = null;

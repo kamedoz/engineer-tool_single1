@@ -217,7 +217,7 @@ router.post("/", async (req, res) => {
     return res.json(q.rows?.[0] || null);
   } catch (e) {
     console.error("TICKETS POST ERROR:", e);
-    return res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: e?.message || "Internal error" });
   }
 });
 
