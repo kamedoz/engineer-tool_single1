@@ -141,6 +141,47 @@ function CommentComposer({ onSubmit, initial = "", onCancel, submitLabel = "Save
   );
 }
 
+function ImageLightbox({ src, onClose }) {
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(5, 8, 20, 0.88)",
+        display: "grid",
+        placeItems: "center",
+        padding: 24,
+        zIndex: 1000,
+      }}
+    >
+      <img
+        src={src}
+        alt=""
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          maxWidth: "min(1100px, 100%)",
+          maxHeight: "calc(100vh - 48px)",
+          borderRadius: 16,
+          border: "1px solid var(--border)",
+          boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
+          objectFit: "contain",
+          background: "rgba(255,255,255,0.02)",
+        }}
+      />
+    </div>
+  );
+}
+
 function CommentsSection({ article, me, onError, t }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -238,6 +279,7 @@ function CommentsSection({ article, me, onError, t }) {
 
 function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuote, onError, t }) {
   const [expanded, setExpanded] = useState(false);
+  const [openImage, setOpenImage] = useState("");
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
@@ -260,7 +302,20 @@ function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuot
           {article.images?.length ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {article.images.map((src, idx) => (
-                <img key={idx} src={src} alt="" style={{ width: 110, height: 110, objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }} />
+                <img
+                  key={idx}
+                  src={src}
+                  alt=""
+                  onClick={() => setOpenImage(src)}
+                  style={{
+                    width: 110,
+                    height: 110,
+                    objectFit: "cover",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    cursor: "zoom-in",
+                  }}
+                />
               ))}
             </div>
           ) : null}
@@ -274,6 +329,7 @@ function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuot
           <CommentsSection article={article} me={me} onError={onError} t={t} />
         </div>
       ) : null}
+      {openImage ? <ImageLightbox src={openImage} onClose={() => setOpenImage("")} /> : null}
     </div>
   );
 }
