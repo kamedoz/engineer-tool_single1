@@ -10,14 +10,18 @@ function toBase64(file) {
   });
 }
 
-function ImageUploader({ images, onChange }) {
+function isVideoSrc(src) {
+  return String(src || "").startsWith("data:video/");
+}
+
+function MediaUploader({ items, onChange }) {
   const inputRef = useRef();
 
   async function handleFiles(files) {
-    const next = [...images];
+    const next = [...items];
     for (const file of files) {
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > 3 * 1024 * 1024) continue;
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) continue;
+      if (file.size > 20 * 1024 * 1024) continue;
       const b64 = await toBase64(file);
       next.push(b64);
     }
@@ -42,24 +46,28 @@ function ImageUploader({ images, onChange }) {
           opacity: 0.8,
         }}
       >
-        Drop article images here or click to upload
+        Drop article photos or videos here or click to upload
       </div>
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         style={{ display: "none" }}
         onChange={(e) => handleFiles(Array.from(e.target.files || []))}
       />
 
-      {images.length > 0 ? (
+      {items.length > 0 ? (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {images.map((src, idx) => (
+          {items.map((src, idx) => (
             <div key={idx} style={{ position: "relative" }}>
-              <img src={src} alt="" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)" }} />
+              {isVideoSrc(src) ? (
+                <video src={src} muted playsInline style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)", background: "#020617" }} />
+              ) : (
+                <img src={src} alt="" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)" }} />
+              )}
               <button
-                onClick={() => onChange(images.filter((_, imageIdx) => imageIdx !== idx))}
+                onClick={() => onChange(items.filter((_, imageIdx) => imageIdx !== idx))}
                 style={{ position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", padding: 0 }}
               >
                 x
@@ -102,7 +110,7 @@ function ArticleForm({ initial, categories, onSave, onCancel, t }) {
       <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t("categoryRequired")} list="wiki-categories" />
       <datalist id="wiki-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist>
       <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={t("writeArticle")} style={{ minHeight: 180 }} />
-      <ImageUploader images={images} onChange={setImages} />
+      <MediaUploader items={images} onChange={setImages} />
       {error ? <div style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</div> : null}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button onClick={onCancel}>{t("cancel")}</button>
@@ -164,20 +172,37 @@ function ImageLightbox({ src, onClose }) {
         zIndex: 1000,
       }}
     >
-      <img
-        src={src}
-        alt=""
-        onClick={(event) => event.stopPropagation()}
-        style={{
-          maxWidth: "min(1100px, 100%)",
-          maxHeight: "calc(100vh - 48px)",
-          borderRadius: 16,
-          border: "1px solid var(--border)",
-          boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
-          objectFit: "contain",
-          background: "rgba(255,255,255,0.02)",
-        }}
-      />
+      {isVideoSrc(src) ? (
+        <video
+          src={src}
+          controls
+          autoPlay
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            maxWidth: "min(1100px, 100%)",
+            maxHeight: "calc(100vh - 48px)",
+            borderRadius: 16,
+            border: "1px solid var(--border)",
+            boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
+            background: "#020617",
+          }}
+        />
+      ) : (
+        <img
+          src={src}
+          alt=""
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            maxWidth: "min(1100px, 100%)",
+            maxHeight: "calc(100vh - 48px)",
+            borderRadius: 16,
+            border: "1px solid var(--border)",
+            boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
+            objectFit: "contain",
+            background: "rgba(255,255,255,0.02)",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -302,20 +327,39 @@ function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuot
           {article.images?.length ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {article.images.map((src, idx) => (
-                <img
-                  key={idx}
-                  src={src}
-                  alt=""
-                  onClick={() => setOpenImage(src)}
-                  style={{
-                    width: 110,
-                    height: 110,
-                    objectFit: "cover",
-                    borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    cursor: "zoom-in",
-                  }}
-                />
+                isVideoSrc(src) ? (
+                  <video
+                    key={idx}
+                    src={src}
+                    muted
+                    playsInline
+                    onClick={() => setOpenImage(src)}
+                    style={{
+                      width: 160,
+                      height: 110,
+                      objectFit: "cover",
+                      borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      cursor: "pointer",
+                      background: "#020617",
+                    }}
+                  />
+                ) : (
+                  <img
+                    key={idx}
+                    src={src}
+                    alt=""
+                    onClick={() => setOpenImage(src)}
+                    style={{
+                      width: 110,
+                      height: 110,
+                      objectFit: "cover",
+                      borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      cursor: "zoom-in",
+                    }}
+                  />
+                )
               ))}
             </div>
           ) : null}

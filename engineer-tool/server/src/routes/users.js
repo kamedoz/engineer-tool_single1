@@ -1,8 +1,10 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { getDb } from "../db.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { createAuditLog, createNotification } from "../utils/activity.js";
+import { uid } from "../utils/uid.js";
 import {
   ALLOWED_BADGE_ICONS,
   ALLOWED_NICKNAME_COLORS,
@@ -33,6 +35,11 @@ const adminProfileSchema = z.object({
   first_name: z.string().trim().min(1),
   last_name: z.string().trim().min(1),
   role_label: z.string().trim().min(1).max(60),
+});
+
+const adminCreateUserSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(4),
 });
 
 async function getCurrentUser(db, userId) {
@@ -173,6 +180,55 @@ r.get("/admin/list", requireAdmin, async (_req, res) => {
     return res.json({ users: (q.rows || []).map(serializeUser) });
   } catch (e) {
     console.error("USERS /admin/list ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+r.post("/admin/create", requireAdmin, async (req, res) => {
+  const parsed = adminCreateUserSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid user payload" });
+  }
+
+  const db = getDb();
+  const email = parsed.data.email.trim().toLowerCase();
+  const password = parsed.data.password;
+
+  try {
+    const existing = await db.query(`SELECT id FROM users WHERE email=$1`, [email]);
+    if (existing.rows?.[0]) {
+      return res.status(409).json({ error: "User already exists" });
+    }
+
+    const id = uid("u_");
+    const now = new Date().toISOString();
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    await db.query(
+      `INSERT INTO users (
+        id,email,password_hash,first_name,last_name,role,role_label,
+        can_edit_wiki,can_delete_wiki,experience,spent_experience,created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [id, email, passwordHash, "", "", "engineer", "Engineer", false, false, 0, 0, now]
+    );
+
+    const created = await getCurrentUser(db, id);
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "user.created_by_admin",
+      entityType: "user",
+      entityId: id,
+      summary: `Created user ${email}`,
+      details: "",
+    });
+
+    return res.json({ user: serializeUser(created) });
+  } catch (e) {
+    if (String(e?.code) === "23505") {
+      return res.status(409).json({ error: "User already exists" });
+    }
+    console.error("USERS /admin/create ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });

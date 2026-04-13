@@ -3,17 +3,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { getDb } from "../db.js";
-import { uid } from "../utils/uid.js";
 import { serializeUser } from "../utils/users.js";
 
 const router = express.Router();
-
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(4),
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
-});
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -28,65 +20,12 @@ function signToken(user) {
   );
 }
 
-async function handleRegister(req, res) {
-  const parsed = registerSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid payload" });
-  }
-
-  const { email, password, first_name, last_name } = parsed.data;
-  const db = getDb();
-
-  try {
-    const existing = await db.query("SELECT id FROM users WHERE email=$1", [email]);
-    if (existing.rows?.[0]) {
-      return res.status(409).json({ error: "User already exists" });
-    }
-
-    const id = uid("u_");
-    const now = new Date().toISOString();
-    const role = "engineer";
-    const passwordHash = bcrypt.hashSync(password, 10);
-
-    await db.query(
-      `INSERT INTO users (
-        id,email,password_hash,first_name,last_name,role,role_label,
-        can_edit_wiki,can_delete_wiki,experience,spent_experience,created_at
-      )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [id, email, passwordHash, first_name, last_name, role, "Engineer", false, false, 0, 0, now]
-    );
-
-    const token = signToken({ id, email, role });
-
-    return res.json({
-      token,
-      user: serializeUser({
-        id,
-        email,
-        first_name,
-        last_name,
-        role,
-        role_label: "Engineer",
-        can_edit_wiki: false,
-        can_delete_wiki: false,
-        experience: 0,
-        spent_experience: 0,
-        created_at: now,
-      }),
-    });
-  } catch (e) {
-    // Postgres unique violation
-    if (String(e?.code) === "23505") {
-      return res.status(409).json({ error: "User already exists" });
-    }
-    console.error("REGISTER ERROR:", e);
-    return res.status(500).json({ error: "Internal error" });
-  }
-}
-
-router.post("/register", handleRegister);
-router.post("/signup", handleRegister);
+router.post("/register", (_req, res) => {
+  return res.status(403).json({ error: "Only admins can create new users" });
+});
+router.post("/signup", (_req, res) => {
+  return res.status(403).json({ error: "Only admins can create new users" });
+});
 
 router.post("/login", async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);

@@ -56,7 +56,6 @@ async function request(method, path, body) {
 export const AuthAPI = {
   login: (email, password) =>
     request("POST", "/api/auth/login", { email, password }),
-  register: (payload) => request("POST", "/api/auth/register", payload),
 };
 
 export const UsersAPI = {
@@ -64,6 +63,7 @@ export const UsersAPI = {
   list: () => request("GET", "/api/users"),
   leaderboard: () => request("GET", "/api/users/leaderboard"),
   adminList: () => request("GET", "/api/users/admin/list"),
+  adminCreate: (payload) => request("POST", "/api/users/admin/create", payload),
   updateAvatar: (avatar_url) => request("PUT", "/api/users/me/avatar", { avatar_url }),
   customize: (payload) => request("POST", "/api/users/me/customize", payload),
   updatePermissions: (id, payload) => request("PUT", `/api/users/${id}/permissions`, payload),

@@ -6,7 +6,7 @@ import { createAuditLog, createNotification } from "../utils/activity.js";
 
 const router = express.Router();
 
-function parseImages(value) {
+function parseMedia(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
   if (typeof value === "string") {
@@ -26,7 +26,7 @@ function normalizeArticle(row) {
     title: row.title,
     category: row.category,
     body: row.body,
-    images: parseImages(row.images),
+    images: parseMedia(row.images),
     created_by_user_id: row.created_by_user_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -345,7 +345,7 @@ router.put("/:id", async (req, res) => {
       images:
         images != null
           ? (Array.isArray(images) ? images : [])
-          : parseImages(current.images),
+          : parseMedia(current.images),
     };
 
     if (!next.title) return res.status(400).json({ error: "title is required" });

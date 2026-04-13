@@ -34,9 +34,9 @@ export default function App() {
   }
 
   useEffect(() => {
-    const t = getToken();
-    setTok(t || "");
-    if (t) loadMe();
+    const storedToken = getToken();
+    setTok(storedToken || "");
+    if (storedToken) loadMe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -60,30 +60,6 @@ export default function App() {
     }
   }
 
-  async function onRegister(payload) {
-    // payload: { email,password,first_name,last_name }
-    setAuthError("");
-    setLoading(true);
-    try {
-      const res = await AuthAPI.register(payload);
-
-      // если register возвращает token — используем
-      if (res?.token) {
-        setToken(res.token);
-        setTok(res.token);
-        await loadMe();
-        return;
-      }
-
-      // если register токен не вернул — логинимся после регистрации
-      await onLogin(payload.email, payload.password);
-    } catch (e) {
-      setAuthError(e?.message || "Register error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function logout() {
     clearToken();
     setTok("");
@@ -94,7 +70,6 @@ export default function App() {
     return (
       <AuthScreen
         onLogin={onLogin}
-        onRegister={onRegister}
         error={loading ? t("loading") : authError}
         t={t}
         language={language}

@@ -8,6 +8,7 @@ export default function AdminUsersSection({ t }) {
   const [savingId, setSavingId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState({ first_name: "", last_name: "", role_label: "" });
+  const [createDraft, setCreateDraft] = useState({ email: "", password: "" });
 
   async function load() {
     setLoading(true);
@@ -74,11 +75,56 @@ export default function AdminUsersSection({ t }) {
     }
   }
 
+  async function createUser() {
+    if (!createDraft.email.trim() || !createDraft.password) {
+      setError("Email and password are required");
+      return;
+    }
+    setSavingId("create");
+    setError("");
+    try {
+      const next = await UsersAPI.adminCreate({
+        email: createDraft.email.trim(),
+        password: createDraft.password,
+      });
+      setUsers((prev) => [next.user, ...prev]);
+      setCreateDraft({ email: "", password: "" });
+    } catch (e) {
+      setError(e?.message || "Failed to create user");
+    } finally {
+      setSavingId("");
+    }
+  }
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <h2 style={{ margin: 0 }}>{t("users")}</h2>
         <button onClick={load}>{t("refresh")}</button>
+      </div>
+
+      <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}>
+        <div style={{ fontWeight: 700 }}>Create new user</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr auto", gap: 8 }}>
+          <input
+            type="email"
+            value={createDraft.email}
+            onChange={(e) => setCreateDraft((prev) => ({ ...prev, email: e.target.value }))}
+            placeholder="Email"
+          />
+          <input
+            type="password"
+            value={createDraft.password}
+            onChange={(e) => setCreateDraft((prev) => ({ ...prev, password: e.target.value }))}
+            placeholder="Password"
+          />
+          <button onClick={createUser} disabled={savingId === "create"}>
+            Create user
+          </button>
+        </div>
+        <div style={{ opacity: 0.7, fontSize: 12 }}>
+          New users are created only by admin. They can sign in with the email and password you set here.
+        </div>
       </div>
 
       {error ? <div style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</div> : null}
