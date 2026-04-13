@@ -47,14 +47,6 @@ export default function AuthScreen({ onLogin, error, t, language, setLanguage })
         {errText ? <div style={{ marginTop: 10, color: "#fca5a5", fontSize: 13 }}>{errText}</div> : <div style={{ marginTop: 10, height: 18 }} />}
 
         <button type="submit" style={buttonStyle}>{t("signIn")}</button>
-
-        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
-          {language === "ru" ? "Новые аккаунты создаёт администратор во вкладке пользователей." : "New accounts are created by an administrator from the users section."}
-        </div>
-
-        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
-          {t("demoAccount")}: <b>demo@engineer.local</b> / <b>demo1234</b>
-        </div>
       </form>
     </div>
   );
