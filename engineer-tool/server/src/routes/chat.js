@@ -12,8 +12,8 @@ function mapMessage(row) {
     from_user_id: row.from_user_id,
     to_user_id: row.to_user_id,
     channel: row.channel,
-    text: row.deleted_at ? "[message deleted]" : row.text,
-    is_deleted: Boolean(row.deleted_at),
+    text: row.text,
+    is_deleted: false,
     updated_at: row.updated_at,
     created_at: row.created_at,
     quoted_article: row.quoted_article_id
@@ -109,6 +109,7 @@ router.get("/global", async (_req, res) => {
     const q = await db.query(
       `${baseMessageQuery()}
        WHERE m.channel = 'global'
+         AND m.deleted_at IS NULL
        ORDER BY m.created_at ASC
        LIMIT 500`
     );
@@ -230,10 +231,7 @@ router.delete("/messages/:messageId", async (req, res) => {
       return res.status(403).json({ error: "Cannot delete this message" });
     }
 
-    await db.query(`UPDATE chat_messages SET deleted_at=$1 WHERE id=$2`, [
-      new Date().toISOString(),
-      messageId,
-    ]);
+    await db.query(`DELETE FROM chat_messages WHERE id=$1`, [messageId]);
     return res.json({ ok: true });
   } catch (e) {
     console.error("CHAT MESSAGE DELETE ERROR:", e);
@@ -252,6 +250,7 @@ router.get("/:otherUserId", async (req, res) => {
     const q = await db.query(
       `${baseMessageQuery()}
        WHERE m.channel = 'direct'
+         AND m.deleted_at IS NULL
          AND ((m.from_user_id = $1 AND m.to_user_id = $2)
            OR (m.from_user_id = $2 AND m.to_user_id = $1))
        ORDER BY m.created_at ASC
