@@ -9,6 +9,7 @@ export default function AdminUsersSection({ t }) {
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState({ first_name: "", last_name: "", role_label: "" });
   const [createDraft, setCreateDraft] = useState({ email: "", password: "" });
+  const [passwordDrafts, setPasswordDrafts] = useState({});
 
   async function load() {
     setLoading(true);
@@ -91,6 +92,24 @@ export default function AdminUsersSection({ t }) {
       setCreateDraft({ email: "", password: "" });
     } catch (e) {
       setError(e?.message || "Failed to create user");
+    } finally {
+      setSavingId("");
+    }
+  }
+
+  async function savePassword(user) {
+    const nextPassword = String(passwordDrafts[user.id] || "");
+    if (!nextPassword) {
+      setError("Password is required");
+      return;
+    }
+    setSavingId(`password:${user.id}`);
+    setError("");
+    try {
+      await UsersAPI.updateAdminPassword(user.id, nextPassword);
+      setPasswordDrafts((prev) => ({ ...prev, [user.id]: "" }));
+    } catch (e) {
+      setError(e?.message || "Failed to update password");
     } finally {
       setSavingId("");
     }
@@ -222,8 +241,19 @@ export default function AdminUsersSection({ t }) {
                       Save
                     </button>
                   </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                    <input
+                      type="password"
+                      value={passwordDrafts[user.id] || ""}
+                      onChange={(e) => setPasswordDrafts((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                      placeholder="New password"
+                    />
+                    <button onClick={() => savePassword(user)} disabled={savingId === `password:${user.id}`}>
+                      Change password
+                    </button>
+                  </div>
                   <div style={{ opacity: 0.7, fontSize: 12 }}>
-                    This changes the displayed role name and the user's visible first/last name. Admin permissions stay tied to the internal admin role.
+                    This changes the displayed role name, the visible first/last name, and lets you set a new password. Admin permissions stay tied to the internal admin role.
                   </div>
                 </div>
               ) : null}

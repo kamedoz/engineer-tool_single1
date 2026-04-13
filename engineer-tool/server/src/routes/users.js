@@ -42,6 +42,10 @@ const adminCreateUserSchema = z.object({
   password: z.string().min(4),
 });
 
+const adminPasswordSchema = z.object({
+  password: z.string().min(4),
+});
+
 async function getCurrentUser(db, userId) {
   const q = await db.query(`SELECT * FROM users WHERE id=$1`, [userId]);
   return q.rows?.[0] || null;
@@ -317,6 +321,38 @@ r.put("/:id/admin-profile", requireAdmin, async (req, res) => {
     return res.json({ user: serializeUser(updated) });
   } catch (e) {
     console.error("USERS /:id/admin-profile ERROR:", e);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+r.put("/:id/admin-password", requireAdmin, async (req, res) => {
+  const parsed = adminPasswordSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid password payload" });
+  }
+
+  const { id } = req.params;
+  const db = getDb();
+
+  try {
+    const existing = await getCurrentUser(db, id);
+    if (!existing) return res.status(404).json({ error: "User not found" });
+
+    const passwordHash = bcrypt.hashSync(parsed.data.password, 10);
+    await db.query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [passwordHash, id]);
+
+    await createAuditLog(db, {
+      actorUserId: req.user.id,
+      action: "user.password.updated_by_admin",
+      entityType: "user",
+      entityId: id,
+      summary: `Updated password for ${existing.email}`,
+      details: "",
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("USERS /:id/admin-password ERROR:", e);
     return res.status(500).json({ error: "Internal error" });
   }
 });
