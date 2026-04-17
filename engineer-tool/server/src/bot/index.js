@@ -541,7 +541,8 @@ async function handleCallback(query) {
         );
       }
     } catch (e) {
-      bot.sendMessage(chatId, `❌ Ошибка создания задачи: ${e.message}`);
+      console.error("[Bot] Task create error:", e);
+      bot.sendMessage(chatId, `❌ Ошибка создания задачи: ${e.message}\n<code>${e.cause?.message || e.code || ""}</code>`, { parse_mode: "HTML" });
     }
     return;
   }
