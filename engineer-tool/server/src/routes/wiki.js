@@ -6,6 +6,28 @@ import { createAuditLog, createNotification } from "../utils/activity.js";
 
 const router = express.Router();
 
+async function notifyTelegram({ title, category, authorEmail }) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+  const appUrl = process.env.APP_URL || "https://engineer-tool-single1.onrender.com";
+  const text =
+    `📚 <b>Вышла новая статья!</b>\n\n` +
+    `📂 <b>Раздел:</b> ${category}\n` +
+    `📄 <b>Название:</b> ${title}\n` +
+    `👤 <b>Автор:</b> ${authorEmail || "—"}\n` +
+    `🔗 <a href="${appUrl}">${appUrl}</a>`;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    });
+  } catch (e) {
+    console.error("Telegram notify error:", e.message);
+  }
+}
+
 function parseMedia(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -316,6 +338,7 @@ router.post("/", async (req, res) => {
       summary: `Created article ${t}`,
       details: JSON.stringify({ category: cat }),
     });
+    notifyTelegram({ title: t, category: cat, authorEmail: req.user?.email });
     return res.json(normalizeArticle(created.rows?.[0]));
   } catch (e) {
     console.error("WIKI POST ERROR:", e);
