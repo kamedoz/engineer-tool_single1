@@ -198,22 +198,49 @@ function handleHelp(chatId) {
 async function handleProjects(chatId) {
   const db = getDb();
   const zohoUser = await getZohoUser(db);
-  if (!zohoUser) {
-    return bot.sendMessage(chatId, "❌ Zoho не подключён. Подключи аккаунт в Engineer Tool.");
-  }
+  if (!zohoUser) return cleanSend(chatId, "❌ Zoho не подключён.");
   await cleanSend(chatId, "⏳ Загружаю проекты...");
   try {
     const projects = await fetchZohoProjects(db, zohoUser);
     if (!projects.length) return cleanSend(chatId, "Проектов не найдено.");
-    const keyboard = {
-      inline_keyboard: projects.map((p) => ([
-        { text: `📁 ${p.name}`, callback_data: `proj_${p.id}` },
-      ])),
-    };
-    await cleanSend(chatId, "Выбери проект:", { reply_markup: keyboard });
+    sessions.set(chatId, { ...sessions.get(chatId), state: "search_project", projects, mode: "view" });
+    await cleanSend(chatId,
+      `🔍 Найдено проектов: <b>${projects.length}</b>\n\nВведи название (или часть) для поиска:`,
+      { parse_mode: "HTML" }
+    );
   } catch (e) {
     cleanSend(chatId, `❌ Ошибка: ${e.message}`);
   }
+}
+
+// ── Показать отфильтрованные проекты ─────────────────────
+async function showFilteredProjects(chatId, projects, query, mode) {
+  const filtered = query
+    ? projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
+    : projects;
+
+  if (!filtered.length) {
+    return cleanSend(chatId,
+      `❌ Проект "<b>${query}</b>" не найден.\nПопробуй другое название:`,
+      { parse_mode: "HTML" }
+    );
+  }
+
+  const prefix = mode === "newtask" ? "newtask_proj_" : "proj_";
+  const keyboard = {
+    inline_keyboard: [
+      ...filtered.slice(0, 20).map((p) => ([
+        { text: `📁 ${p.name}`, callback_data: `${prefix}${p.id}` },
+      ])),
+      [{ text: "🔍 Новый поиск", callback_data: `search_again_${mode}` }],
+    ],
+  };
+  await cleanSend(chatId,
+    filtered.length === projects.length
+      ? `📁 Все проекты (${filtered.length}):`
+      : `📁 Найдено: <b>${filtered.length}</b> из ${projects.length}:`,
+    { parse_mode: "HTML", reply_markup: keyboard }
+  );
 }
 
 // ── /newtask ─────────────────────────────────────────────
@@ -225,13 +252,11 @@ async function handleNewTask(chatId) {
   try {
     const projects = await fetchZohoProjects(db, zohoUser);
     if (!projects.length) return cleanSend(chatId, "Проектов не найдено.");
-    sessions.set(chatId, { state: "newtask_select_project", projects });
-    const keyboard = {
-      inline_keyboard: projects.map((p) => ([
-        { text: `📁 ${p.name}`, callback_data: `newtask_proj_${p.id}` },
-      ])),
-    };
-    await cleanSend(chatId, "📁 Выбери проект для новой задачи:", { reply_markup: keyboard });
+    sessions.set(chatId, { state: "search_project", projects, mode: "newtask" });
+    await cleanSend(chatId,
+      `🔍 Найдено проектов: <b>${projects.length}</b>\n\nВведи название (или часть) для поиска:`,
+      { parse_mode: "HTML" }
+    );
   } catch (e) {
     cleanSend(chatId, `❌ Ошибка: ${e.message}`);
   }
@@ -393,6 +418,15 @@ async function handleCallback(query) {
     return;
   }
 
+  // ── Новый поиск ──
+  if (data.startsWith("search_again_")) {
+    const mode = data.slice(13);
+    const session = sessions.get(chatId) || {};
+    sessions.set(chatId, { ...session, state: "search_project", mode });
+    await cleanSend(chatId, "🔍 Введи название проекта для поиска:", { parse_mode: "HTML" });
+    return;
+  }
+
   // ── Выбор проекта при создании новой задачи ──
   if (data.startsWith("newtask_proj_")) {
     const projectId = data.slice(13);
@@ -476,6 +510,12 @@ async function handleText(msg) {
   if (text === "📁 Проекты")       return handleProjects(chatId);
   if (text === "👤 Мой профиль")   return handleProfile(chatId);
   if (text === "❓ Помощь")        return handleHelp(chatId);
+
+  // ── Поиск проекта ──
+  if (session?.state === "search_project") {
+    await showFilteredProjects(chatId, session.projects, text, session.mode);
+    return;
+  }
 
   // ── Регистрация email ──
   if (session?.state === "await_email") {
