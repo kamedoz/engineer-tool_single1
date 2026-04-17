@@ -9,6 +9,7 @@ import {
   createZohoTask,
   completeZohoTask,
   createZohoTimeLog,
+  buildZohoAuthUrlForBot,
 } from "../utils/zoho.js";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -23,7 +24,8 @@ const MAIN_MENU = {
   reply_markup: {
     keyboard: [
       [{ text: "➕ Создать задачу" }, { text: "📁 Проекты" }],
-      [{ text: "👤 Мой профиль"   }, { text: "❓ Помощь"  }],
+      [{ text: "👤 Мой профиль"   }, { text: "🔗 Подключить Zoho" }],
+      [{ text: "❓ Помощь" }],
     ],
     resize_keyboard: true,
     persistent: true,
@@ -105,10 +107,13 @@ async function getZohoUser(db) {
   return anyQ.rows?.[0] || null;
 }
 
-// Возвращает Zoho-аккаунт самого пользователя (по email из tg_users),
-// если у него есть подключённый Zoho — иначе fallback на admin
+// Возвращает Zoho-аккаунт самого пользователя.
+// Приоритет: собственный токен в tg_users → users по email → admin fallback
 async function getZohoUserForChat(db, chatId) {
   const tgUser = await getTgUser(db, chatId);
+  // 1. Собственный Zoho-токен подключён прямо в боте
+  if (tgUser?.zoho_refresh_token) return tgUser;
+  // 2. Аккаунт в веб-приложении с тем же email
   if (tgUser?.email) {
     const q = await db.query(
       `SELECT * FROM users WHERE LOWER(email)=LOWER($1) AND zoho_refresh_token IS NOT NULL LIMIT 1`,
@@ -194,6 +199,28 @@ async function handleProfile(chatId) {
     `Для смены email — напиши новый email сюда.`,
     { parse_mode: "HTML" }
   );
+}
+
+// ── Подключить Zoho ──────────────────────────────────────
+async function handleConnectZoho(chatId) {
+  const db = getDb();
+  const tgUser = await getTgUser(db, chatId);
+  if (!tgUser) {
+    return bot.sendMessage(chatId, "Сначала зарегистрируйся — нажми /start");
+  }
+  try {
+    const url = buildZohoAuthUrlForBot(chatId);
+    const isConnected = Boolean(tgUser.zoho_refresh_token);
+    bot.sendMessage(chatId,
+      (isConnected
+        ? `✅ Zoho уже подключён.\n\nЕсли хочешь переподключить аккаунт — нажми кнопку ниже.`
+        : `🔗 <b>Подключи свой Zoho-аккаунт</b>\n\nПосле подключения задачи будут создаваться и закрываться от твоего имени.`) +
+      `\n\n<a href="${url}">👉 Нажми сюда для авторизации в Zoho</a>`,
+      { parse_mode: "HTML", disable_web_page_preview: true }
+    );
+  } catch (e) {
+    bot.sendMessage(chatId, `❌ Ошибка: ${e.message}`);
+  }
 }
 
 // ── Помощь ───────────────────────────────────────────────
@@ -524,10 +551,11 @@ async function handleText(msg) {
   const db = getDb();
 
   // ── Кнопки главного меню ──
-  if (text === "➕ Создать задачу") return handleNewTask(chatId);
-  if (text === "📁 Проекты")       return handleProjects(chatId);
-  if (text === "👤 Мой профиль")   return handleProfile(chatId);
-  if (text === "❓ Помощь")        return handleHelp(chatId);
+  if (text === "➕ Создать задачу")  return handleNewTask(chatId);
+  if (text === "📁 Проекты")        return handleProjects(chatId);
+  if (text === "👤 Мой профиль")    return handleProfile(chatId);
+  if (text === "🔗 Подключить Zoho") return handleConnectZoho(chatId);
+  if (text === "❓ Помощь")         return handleHelp(chatId);
 
   // ── Поиск проекта ──
   if (session?.state === "search_project") {
@@ -615,17 +643,12 @@ export function startBot() {
     bot.sendMessage(GROUP_ID,
       `🔄 <b>Бот обновлён</b>\n\n` +
       `📦 <b>Что изменилось:</b>\n` +
-      `• Теперь каждый создаёт и закрывает задачи от своего имени в Zoho\n` +
+      `• Добавлена кнопка <b>🔗 Подключить Zoho</b> прямо в боте\n` +
+      `• Теперь каждый создаёт и закрывает задачи от своего имени\n` +
       `• Исправлена ошибка «Unauthorized» при закрытии задачи\n\n` +
-      `⚠️ <b>Важно — требуется действие!</b>\n` +
-      `Для корректной работы каждый должен подключить свой Zoho-аккаунт в веб-приложении.\n\n` +
-      `<b>Инструкция:</b>\n` +
-      `1️⃣ Открой <a href="https://projectsplus.zoho.com/projectsplus/simplehomebyliis/home/app/projects/portal/simplehomebyliis#allprojects/2521554000000061712/">приложение</a>\n` +
-      `2️⃣ Войди в свой аккаунт\n` +
-      `3️⃣ Перейди в <b>Профиль → Подключить Zoho</b>\n` +
-      `4️⃣ Авторизуйся через Zoho\n\n` +
-      `После этого задачи в боте будут создаваться и закрываться от твоего имени.`,
-      { parse_mode: "HTML", disable_web_page_preview: true }
+      `⚠️ <b>Требуется действие от каждого!</b>\n` +
+      `Напиши боту в личку и нажми кнопку <b>🔗 Подключить Zoho</b> — это займёт 1 минуту.`,
+      { parse_mode: "HTML" }
     );
   }
 

@@ -257,6 +257,10 @@ async function migrate(p) {
       created_at TEXT NOT NULL
     );
   `);
+  await p.query(`ALTER TABLE tg_users ADD COLUMN IF NOT EXISTS zoho_refresh_token TEXT`);
+  await p.query(`ALTER TABLE tg_users ADD COLUMN IF NOT EXISTS zoho_access_token TEXT`);
+  await p.query(`ALTER TABLE tg_users ADD COLUMN IF NOT EXISTS zoho_token_expires_at TEXT`);
+  await p.query(`ALTER TABLE tg_users ADD COLUMN IF NOT EXISTS zoho_portal_name TEXT`);
   await p.query(`
     CREATE TABLE IF NOT EXISTS tg_tasks (
       id TEXT PRIMARY KEY,

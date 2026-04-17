@@ -3,6 +3,7 @@ import { getDb } from "../db.js";
 import { authRequired } from "../middleware/auth.js";
 import {
   buildZohoAuthUrl,
+  buildZohoAuthUrlForBot,
   clearZohoConnection,
   decodeZohoState,
   exchangeZohoCode,
@@ -12,6 +13,7 @@ import {
   fetchZohoTasks,
   getZohoFrontendRedirect,
   storeZohoConnection,
+  storeZohoConnectionForBot,
 } from "../utils/zoho.js";
 import { serializeUser } from "../utils/users.js";
 
@@ -56,7 +58,34 @@ r.get("/callback", async (req, res) => {
   }
 
   const parsedState = decodeZohoState(state);
-  if (!parsedState?.userId || !code) {
+  if (!code) {
+    return res.redirect(getZohoFrontendRedirect(false, "Invalid Zoho callback state"));
+  }
+
+  // ── Bot user OAuth callback ──
+  if (parsedState?.type === "bot" && parsedState?.chatId) {
+    try {
+      const tokenData = await exchangeZohoCode(String(code));
+      await storeZohoConnectionForBot(db, parsedState.chatId, tokenData, {});
+      return res.send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+          <h2>✅ Zoho подключён!</h2>
+          <p>Можешь закрыть эту страницу и вернуться в Telegram.</p>
+        </body></html>
+      `);
+    } catch (e) {
+      console.error("ZOHO BOT CALLBACK ERROR:", e);
+      return res.send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+          <h2>❌ Ошибка подключения</h2>
+          <p>${e?.message || "Zoho connection failed"}</p>
+        </body></html>
+      `);
+    }
+  }
+
+  // ── Web app user OAuth callback ──
+  if (!parsedState?.userId) {
     return res.redirect(getZohoFrontendRedirect(false, "Invalid Zoho callback state"));
   }
 

@@ -109,12 +109,64 @@ export async function getZohoAccessToken(db, user) {
   const expiresIn = Number(refreshed.expires_in || 3600);
   const nextExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-  await db.query(
-    `UPDATE users SET zoho_access_token=$1, zoho_token_expires_at=$2 WHERE id=$3`,
-    [nextAccessToken, nextExpiresAt, user.id]
-  );
+  // Поддержка tg_users (chat_id) и users (id)
+  if (user.chat_id) {
+    await db.query(
+      `UPDATE tg_users SET zoho_access_token=$1, zoho_token_expires_at=$2 WHERE chat_id=$3`,
+      [nextAccessToken, nextExpiresAt, user.chat_id]
+    );
+  } else {
+    await db.query(
+      `UPDATE users SET zoho_access_token=$1, zoho_token_expires_at=$2 WHERE id=$3`,
+      [nextAccessToken, nextExpiresAt, user.id]
+    );
+  }
 
   return nextAccessToken;
+}
+
+export function buildZohoAuthUrlForBot(chatId) {
+  const cfg = getZohoConfig();
+  const state = Buffer.from(JSON.stringify({ chatId, type: "bot", ts: Date.now() })).toString("base64url");
+  const scopes = [
+    "ZohoProjects.portals.READ",
+    "ZohoProjects.projects.READ",
+    "ZohoProjects.tasks.ALL",
+    "ZohoProjects.timesheets.ALL",
+    "ZohoProjects.users.READ",
+  ].join(",");
+
+  const url = new URL(`${cfg.accountsBase}/oauth/v2/auth`);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", requireEnv("ZOHO_CLIENT_ID", cfg.clientId));
+  url.searchParams.set("redirect_uri", requireEnv("ZOHO_REDIRECT_URI", cfg.redirectUri));
+  url.searchParams.set("scope", scopes);
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
+export async function storeZohoConnectionForBot(db, chatId, tokenData, accountData) {
+  const expiresIn = Number(tokenData?.expires_in || 3600);
+  const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+  const portalName = getZohoConfig().portalName;
+
+  await db.query(
+    `UPDATE tg_users
+     SET zoho_refresh_token=COALESCE($1, zoho_refresh_token),
+         zoho_access_token=$2,
+         zoho_token_expires_at=$3,
+         zoho_portal_name=$4
+     WHERE chat_id=$5`,
+    [
+      String(tokenData?.refresh_token || "").trim() || null,
+      String(tokenData?.access_token || "").trim(),
+      expiresAt,
+      portalName,
+      String(chatId),
+    ]
+  );
 }
 
 async function zohoApi(db, user, method, path, body, query = {}) {
