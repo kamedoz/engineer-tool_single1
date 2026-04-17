@@ -22,7 +22,7 @@ async function notifyTelegram({ title, category, authorEmail }) {
     const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, message_thread_id: 1, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
     });
     const json = await resp.json();
     console.log("Telegram response:", JSON.stringify(json));
