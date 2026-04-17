@@ -504,14 +504,23 @@ async function handleText(msg) {
     await cleanSend(chatId, "⏳ Загружаю участников проекта...");
     try {
       const zohoUser = await getZohoUser(db);
-      const users = await fetchZohoProjectUsers(db, zohoUser, session.projectId);
+      const allUsers = await fetchZohoProjectUsers(db, zohoUser, session.projectId);
+      const tgUser = await getTgUser(db, chatId);
+
+      // Показываем только себя (по email из регистрации)
+      const users = tgUser?.email
+        ? allUsers.filter((u) => u.email.toLowerCase() === tgUser.email.toLowerCase())
+        : allUsers;
+
+      if (!users.length) return cleanSend(chatId, "❌ Твой email не найден в участниках этого проекта. Попроси администратора добавить тебя в Zoho.");
+
       sessions.set(chatId, { ...sessions.get(chatId), users });
       const keyboard = {
         inline_keyboard: users.map((u, idx) => ([
           { text: `👤 ${u.name} (${u.email})`, callback_data: `newtask_assign_${idx}` },
         ])),
       };
-      await cleanSend(chatId, "👤 Выбери исполнителя:", { reply_markup: keyboard });
+      await cleanSend(chatId, "👤 Подтверди исполнителя:", { reply_markup: keyboard });
     } catch (e) {
       cleanSend(chatId, `❌ Ошибка: ${e.message}`);
     }
