@@ -105,6 +105,20 @@ async function getZohoUser(db) {
   return anyQ.rows?.[0] || null;
 }
 
+// Возвращает Zoho-аккаунт самого пользователя (по email из tg_users),
+// если у него есть подключённый Zoho — иначе fallback на admin
+async function getZohoUserForChat(db, chatId) {
+  const tgUser = await getTgUser(db, chatId);
+  if (tgUser?.email) {
+    const q = await db.query(
+      `SELECT * FROM users WHERE LOWER(email)=LOWER($1) AND zoho_refresh_token IS NOT NULL LIMIT 1`,
+      [tgUser.email]
+    );
+    if (q.rows?.[0]) return q.rows[0];
+  }
+  return getZohoUser(db);
+}
+
 async function getTgUser(db, chatId) {
   const q = await db.query(`SELECT * FROM tg_users WHERE chat_id=$1`, [String(chatId)]);
   return q.rows?.[0] || null;
@@ -376,7 +390,7 @@ async function handleCallback(query) {
 
     try {
       const db2 = getDb();
-      const zohoUser = await getZohoUser(db2);
+      const zohoUser = await getZohoUserForChat(db2, chatId);
 
       // Логируем время — без owner (от имени токена)
       let timeLogged = false;
@@ -455,7 +469,7 @@ async function handleCallback(query) {
       if (tgQ.rows?.[0]) assigneeChatId = tgQ.rows[0].chat_id;
     }
 
-    const zohoUser = await getZohoUser(db2);
+    const zohoUser = await getZohoUserForChat(db2, chatId);
     await cleanSend(chatId, "⏳ Создаю задачу в Zoho...");
     try {
       const created = await createZohoTask(db2, zohoUser, session.projectId, {
