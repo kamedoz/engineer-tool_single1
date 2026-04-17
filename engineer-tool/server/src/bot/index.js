@@ -453,6 +453,8 @@ async function handleCallback(query) {
 
       if (taskClosed && timeLogged) {
         bot.sendMessage(chatId, `✅ Готово! Время <b>${fmt(elapsed)}</b> залогировано в Zoho. Задача закрыта.`, { parse_mode: "HTML" });
+      } else if (taskClosed && elapsed <= 60) {
+        bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\nВремя не засчитано — меньше минуты.`);
       } else if (taskClosed) {
         bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\n⚠️ Время не удалось залогировать (${fmt(elapsed)}).\n\n<code>${timeErrMsg}</code>`, { parse_mode: "HTML" });
       } else {
