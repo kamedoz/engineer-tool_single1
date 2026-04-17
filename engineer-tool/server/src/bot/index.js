@@ -462,8 +462,10 @@ async function handleCallback(query) {
       bot.sendMessage(chatId, `⚠️ Ошибка Zoho: ${e.message}`);
     }
 
-    const updated = await getTgTask(db, taskId);
-    await updateTaskMessage(db, updated);
+    try {
+      const updated = await getTgTask(db, taskId);
+      await updateTaskMessage(db, updated);
+    } catch (_) {}
     return;
   }
 
@@ -619,15 +621,28 @@ async function handleText(msg) {
   }
 }
 
-function registerHandlers() {
-  bot.onText(/\/start/, handleStart);
-  bot.onText(/\/projects/, (msg) => handleProjects(msg.chat.id));
-  bot.onText(/\/newtask/, (msg) => handleNewTask(msg.chat.id));
-  bot.on("callback_query", handleCallback);
-  bot.on("message", (msg) => {
-    if (msg.text && !msg.text.startsWith("/")) handleText(msg);
-  });
+function safe(fn) {
+  return async (...args) => {
+    try {
+      await fn(...args);
+    } catch (e) {
+      console.error("[Bot] Unhandled error:", e);
+    }
+  };
 }
+
+function registerHandlers() {
+  bot.onText(/\/start/, safe(handleStart));
+  bot.onText(/\/projects/, safe((msg) => handleProjects(msg.chat.id)));
+  bot.onText(/\/newtask/, safe((msg) => handleNewTask(msg.chat.id)));
+  bot.on("callback_query", safe(handleCallback));
+  bot.on("message", safe((msg) => {
+    if (msg.text && !msg.text.startsWith("/")) return handleText(msg);
+  }));
+}
+
+process.on("uncaughtException", (e) => console.error("[Bot] uncaughtException:", e));
+process.on("unhandledRejection", (e) => console.error("[Bot] unhandledRejection:", e));
 
 // ── Init bot ─────────────────────────────────────────────
 export function startBot(app) {
