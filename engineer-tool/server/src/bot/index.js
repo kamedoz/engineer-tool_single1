@@ -292,19 +292,42 @@ async function handleCallback(query) {
     try {
       const db2 = getDb();
       const zohoUser = await getZohoUser(db2);
-      const tgUser = await getTgUser(db2, chatId);
 
-      await createZohoTimeLog(
-        db2, zohoUser,
-        task.zoho_project_id, task.zoho_task_id,
-        elapsed,
-        `Работа над задачей (Telegram бот)`,
-        tgUser?.zoho_user_id || ""
-      );
-      await completeZohoTask(db2, zohoUser, task.zoho_project_id, task.zoho_task_id);
-      bot.sendMessage(chatId, `✅ Готово! Время <b>${fmt(elapsed)}</b> залогировано в Zoho. Задача закрыта.`, { parse_mode: "HTML" });
+      // Логируем время — без owner (от имени токена)
+      let timeLogged = false;
+      if (elapsed > 60) {
+        try {
+          await createZohoTimeLog(
+            db2, zohoUser,
+            task.zoho_project_id, task.zoho_task_id,
+            elapsed,
+            `Работа над задачей (Telegram бот)`,
+            "" // без owner — логируем от имени admin-токена
+          );
+          timeLogged = true;
+        } catch (timeErr) {
+          console.error("[Bot] Time log error:", timeErr.message);
+        }
+      }
+
+      // Закрываем задачу — отдельно, всегда
+      let taskClosed = false;
+      try {
+        await completeZohoTask(db2, zohoUser, task.zoho_project_id, task.zoho_task_id);
+        taskClosed = true;
+      } catch (closeErr) {
+        console.error("[Bot] Close task error:", closeErr.message);
+      }
+
+      if (taskClosed && timeLogged) {
+        bot.sendMessage(chatId, `✅ Готово! Время <b>${fmt(elapsed)}</b> залогировано в Zoho. Задача закрыта.`, { parse_mode: "HTML" });
+      } else if (taskClosed) {
+        bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\n⚠️ Время не удалось залогировать (${fmt(elapsed)}).`, { parse_mode: "HTML" });
+      } else {
+        bot.sendMessage(chatId, `⚠️ Не удалось обновить задачу в Zoho. Проверьте доступ администратора к проекту.`);
+      }
     } catch (e) {
-      bot.sendMessage(chatId, `⚠️ Задача закрыта локально, но ошибка Zoho: ${e.message}`);
+      bot.sendMessage(chatId, `⚠️ Ошибка Zoho: ${e.message}`);
     }
 
     const updated = await getTgTask(db, taskId);
