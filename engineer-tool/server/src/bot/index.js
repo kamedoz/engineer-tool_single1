@@ -640,6 +640,11 @@ export function startBot() {
 
   bot.on("polling_error", (e) => console.error("[Bot] polling error:", e.message));
 
+  process.on("SIGTERM", () => {
+    console.log("[Bot] SIGTERM received — stopping polling");
+    bot.stopPolling().then(() => process.exit(0));
+  });
+
   const GROUP_ID = process.env.TELEGRAM_CHAT_ID;
 
   // ── Уведомление об обновлении ──
