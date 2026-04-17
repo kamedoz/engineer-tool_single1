@@ -246,6 +246,33 @@ async function migrate(p) {
   `);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);`);
   await p.query(`CREATE INDEX IF NOT EXISTS idx_users_experience ON users(experience DESC, created_at ASC);`);
+
+  // === Telegram Bot tables ===
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS tg_users (
+      chat_id TEXT PRIMARY KEY,
+      name TEXT,
+      email TEXT,
+      zoho_user_id TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS tg_tasks (
+      id TEXT PRIMARY KEY,
+      zoho_project_id TEXT NOT NULL,
+      zoho_project_name TEXT,
+      zoho_task_id TEXT NOT NULL,
+      zoho_task_name TEXT,
+      assignee_chat_id TEXT NOT NULL,
+      creator_chat_id TEXT,
+      timer_started_at TEXT,
+      elapsed_seconds INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      tg_message_id TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
 }
 
 export async function initDb() {

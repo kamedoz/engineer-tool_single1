@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git rebase:*)",
+      "Bash(git push:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('engineer-tool/server/package-lock.json'\\)\\); print\\('server: OK'\\)\")",
+      "Bash(python3 -c \"import json; json.load\\(open\\('engineer-tool/client/package-lock.json'\\)\\); print\\('client: OK'\\)\")",
+      "WebFetch(domain:github.com)",
+      "Bash(git commit -m 'Send Telegram notification to Курилка topic \\(thread_id=1\\):*)",
+      "Bash(git commit -m 'Add Telegram API response logging for debugging:*)",
+      "Bash(git commit -m 'Add debug logging to notifyTelegram function:*)",
+      "WebFetch(domain:api.telegram.org)",
+      "Bash(git commit -m 'Remove message_thread_id, send to general Курилка topic:*)"
+    ]
+  }
+}

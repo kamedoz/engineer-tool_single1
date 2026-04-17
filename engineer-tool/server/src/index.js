@@ -17,6 +17,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import notificationRoutes from "./routes/notifications.js";
 import historyRoutes from "./routes/history.js";
 import zohoRoutes from "./routes/zoho.js";
+import { startBot } from "./bot/index.js";
 
 dotenv.config();
 
@@ -95,6 +96,7 @@ async function seedAdmin() {
 async function bootstrap() {
   await initDb();
   await seedAdmin();
+  startBot();
 
   const port = process.env.PORT || 4000;
   app.listen(port, () => {
