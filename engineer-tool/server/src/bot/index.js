@@ -619,30 +619,52 @@ async function handleText(msg) {
   }
 }
 
+function registerHandlers() {
+  bot.onText(/\/start/, handleStart);
+  bot.onText(/\/projects/, (msg) => handleProjects(msg.chat.id));
+  bot.onText(/\/newtask/, (msg) => handleNewTask(msg.chat.id));
+  bot.on("callback_query", handleCallback);
+  bot.on("message", (msg) => {
+    if (msg.text && !msg.text.startsWith("/")) handleText(msg);
+  });
+}
+
 // ── Init bot ─────────────────────────────────────────────
-export function startBot() {
+export function startBot(app) {
   if (!TOKEN) {
     console.warn("[Bot] TELEGRAM_BOT_TOKEN not set — bot disabled");
     return;
   }
 
-  bot = new TelegramBot(TOKEN, { polling: true });
-  console.log("[Bot] Started polling");
+  const appUrl = String(process.env.APP_BASE_URL || "").replace(/\/+$/, "");
 
-  bot.onText(/\/start/, handleStart);
-  bot.onText(/\/projects/, (msg) => handleProjects(msg.chat.id));
-  bot.onText(/\/newtask/, (msg) => handleNewTask(msg.chat.id));
+  if (appUrl) {
+    // ── Webhook mode (production) ──
+    bot = new TelegramBot(TOKEN, { polling: false });
+    registerHandlers();
 
-  bot.on("callback_query", handleCallback);
-  bot.on("message", (msg) => {
-    if (msg.text && !msg.text.startsWith("/")) handleText(msg);
-  });
+    const webhookUrl = `${appUrl}/api/bot-webhook`;
+    bot.setWebHook(webhookUrl)
+      .then(() => console.log(`[Bot] Webhook set: ${webhookUrl}`))
+      .catch((e) => console.error("[Bot] Failed to set webhook:", e.message));
 
-  bot.on("polling_error", (e) => console.error("[Bot] polling error:", e.message));
+    app.post("/api/bot-webhook", (req, res) => {
+      bot.processUpdate(req.body);
+      res.sendStatus(200);
+    });
+
+    console.log("[Bot] Webhook mode");
+  } else {
+    // ── Polling mode (local dev) ──
+    bot = new TelegramBot(TOKEN, { polling: true });
+    registerHandlers();
+    bot.on("polling_error", (e) => console.error("[Bot] polling error:", e.message));
+    console.log("[Bot] Polling mode");
+  }
 
   process.on("SIGTERM", () => {
-    console.log("[Bot] SIGTERM received — stopping polling");
-    bot.stopPolling().then(() => process.exit(0));
+    console.log("[Bot] SIGTERM — shutting down");
+    (bot.isPolling() ? bot.stopPolling() : Promise.resolve()).then(() => process.exit(0));
   });
 
   const GROUP_ID = process.env.TELEGRAM_CHAT_ID;

@@ -96,7 +96,7 @@ async function seedAdmin() {
 async function bootstrap() {
   await initDb();
   await seedAdmin();
-  startBot();
+  startBot(app);
 
   const port = process.env.PORT || 4000;
   app.listen(port, () => {
