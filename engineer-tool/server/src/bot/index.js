@@ -620,7 +620,7 @@ export function startBot() {
       `⚠️ <b>Важно — требуется действие!</b>\n` +
       `Для корректной работы каждый должен подключить свой Zoho-аккаунт в веб-приложении.\n\n` +
       `<b>Инструкция:</b>\n` +
-      `1️⃣ Открой ${appUrl ? `<a href="${appUrl}">${appUrl}</a>` : "веб-приложение"}\n` +
+      `1️⃣ Открой <a href="https://projectsplus.zoho.com/projectsplus/simplehomebyliis/home/app/projects/portal/simplehomebyliis#allprojects/2521554000000061712/">приложение</a>\n` +
       `2️⃣ Войди в свой аккаунт\n` +
       `3️⃣ Перейди в <b>Профиль → Подключить Zoho</b>\n` +
       `4️⃣ Авторизуйся через Zoho\n\n` +
