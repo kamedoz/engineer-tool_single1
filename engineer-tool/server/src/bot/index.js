@@ -1,5 +1,6 @@
 // server/src/bot/index.js — Zoho Task Bot
 import TelegramBot from "node-telegram-bot-api";
+import cron from "node-cron";
 import { getDb } from "../db.js";
 import {
   fetchZohoProjects,
@@ -444,4 +445,49 @@ export function startBot() {
   });
 
   bot.on("polling_error", (e) => console.error("[Bot] polling error:", e.message));
+
+  const GROUP_ID = process.env.TELEGRAM_CHAT_ID;
+
+  // ── Приветственное сообщение (один раз при запуске) ──
+  if (GROUP_ID) {
+    bot.sendMessage(GROUP_ID,
+      `👋 <b>Привет, команда!</b>\n\n` +
+      `Я <b>Engineer Bot</b> — ваш помощник по задачам.\n\n` +
+      `🔧 <b>Что я умею:</b>\n` +
+      `• Получать задачи из Zoho Projects\n` +
+      `• Отправлять задачу прямо в личку исполнителю\n` +
+      `• Запускать таймер прямо в Telegram\n` +
+      `• Логировать время и закрывать задачу в Zoho одной кнопкой\n` +
+      `• Напоминать утром открыть задачи, вечером — закрыть\n\n` +
+      `📲 <b>Как начать:</b>\n` +
+      `Напишите мне в личку /start — и я свяжу ваш Telegram с Zoho.\n\n` +
+      `🕙 Каждый день в <b>10:00</b> — напоминание открыть задачи\n` +
+      `🕕 Каждый день в <b>18:00</b> — напоминание закрыть задачи`,
+      { parse_mode: "HTML" }
+    );
+  }
+
+  // ── Утреннее напоминание: 10:00 Дубай (UTC+4 = 06:00 UTC) ──
+  cron.schedule("0 6 * * *", () => {
+    if (!GROUP_ID) return;
+    bot.sendMessage(GROUP_ID,
+      `🌅 <b>Доброе утро, команда!</b>\n\n` +
+      `Не забудьте открыть задачи на сегодня в боте — запустите таймер, как только начнёте работу.\n\n` +
+      `📲 Напишите мне /newtask чтобы взять задачу из Zoho.`,
+      { parse_mode: "HTML" }
+    );
+    console.log("[Bot] Sent morning reminder");
+  });
+
+  // ── Вечернее напоминание: 18:00 Дубай (UTC+4 = 14:00 UTC) ──
+  cron.schedule("0 14 * * *", () => {
+    if (!GROUP_ID) return;
+    bot.sendMessage(GROUP_ID,
+      `🌆 <b>Конец рабочего дня!</b>\n\n` +
+      `Не забудьте закрыть все активные задачи — нажмите кнопку <b>✅ Закрыть задачу</b> в личке бота, чтобы время ушло в Zoho.\n\n` +
+      `Хорошего вечера! 👋`,
+      { parse_mode: "HTML" }
+    );
+    console.log("[Bot] Sent evening reminder");
+  });
 }
