@@ -25,7 +25,7 @@ const MAIN_MENU = {
     keyboard: [
       [{ text: "➕ Создать задачу" }, { text: "📁 Проекты" }],
       [{ text: "👤 Мой профиль"   }, { text: "🔗 Подключить Zoho" }],
-      [{ text: "❓ Помощь" }],
+      [{ text: "📊 Статистика"    }, { text: "❓ Помощь" }],
     ],
     resize_keyboard: true,
     persistent: true,
@@ -221,6 +221,46 @@ async function handleConnectZoho(chatId) {
   } catch (e) {
     bot.sendMessage(chatId, `❌ Ошибка: ${e.message}`);
   }
+}
+
+// ── Статистика ───────────────────────────────────────────
+async function handleStats(chatId) {
+  const db = getDb();
+  const user = await getTgUser(db, chatId);
+  if (!user) return bot.sendMessage(chatId, "Сначала зарегистрируйся — нажми /start");
+
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const q = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE created_at >= $2) AS week_tasks,
+      COALESCE(SUM(elapsed_seconds) FILTER (WHERE created_at >= $2), 0) AS week_seconds,
+      COUNT(*) FILTER (WHERE created_at >= $3) AS month_tasks,
+      COALESCE(SUM(elapsed_seconds) FILTER (WHERE created_at >= $3), 0) AS month_seconds,
+      COUNT(*) AS all_tasks,
+      COALESCE(SUM(elapsed_seconds), 0) AS all_seconds
+    FROM tg_tasks
+    WHERE assignee_chat_id=$1 AND status='done'
+  `, [String(chatId), monday.toISOString(), monthStart.toISOString()]);
+
+  const s = q.rows[0];
+  bot.sendMessage(chatId,
+    `📊 <b>Твоя статистика</b>\n\n` +
+    `<b>Эта неделя:</b>\n` +
+    `• Задач закрыто: ${s.week_tasks}\n` +
+    `• Время залогировано: ${fmt(Number(s.week_seconds))}\n\n` +
+    `<b>Этот месяц:</b>\n` +
+    `• Задач закрыто: ${s.month_tasks}\n` +
+    `• Время залогировано: ${fmt(Number(s.month_seconds))}\n\n` +
+    `<b>За всё время:</b>\n` +
+    `• Задач закрыто: ${s.all_tasks}\n` +
+    `• Время залогировано: ${fmt(Number(s.all_seconds))}`,
+    { parse_mode: "HTML" }
+  );
 }
 
 // ── Помощь ───────────────────────────────────────────────
@@ -564,6 +604,7 @@ async function handleText(msg) {
   if (text === "📁 Проекты")        return handleProjects(chatId);
   if (text === "👤 Мой профиль")    return handleProfile(chatId);
   if (text === "🔗 Подключить Zoho") return handleConnectZoho(chatId);
+  if (text === "📊 Статистика")     return handleStats(chatId);
   if (text === "❓ Помощь")         return handleHelp(chatId);
 
   // ── Поиск проекта ──
@@ -690,16 +731,31 @@ export function startBot(app) {
   if (GROUP_ID) {
     const appUrl = String(process.env.APP_BASE_URL || "").replace(/\/+$/, "");
     bot.sendMessage(GROUP_ID,
-      `🔄 <b>Бот обновлён</b>\n\n` +
-      `📦 <b>Что изменилось:</b>\n` +
-      `• Добавлена кнопка <b>🔗 Подключить Zoho</b> прямо в боте\n` +
-      `• Теперь каждый создаёт и закрывает задачи от своего имени\n` +
-      `• Исправлена ошибка «Unauthorized» при закрытии задачи\n\n` +
-      `⚠️ <b>Требуется действие от каждого!</b>\n` +
-      `Напиши боту в личку и нажми кнопку <b>🔗 Подключить Zoho</b> — это займёт 1 минуту.`,
+      `🔄 <b>Бот обновлён — большое обновление!</b>\n\n` +
+      `🆕 <b>Что нового:</b>\n` +
+      `• 📊 Кнопка <b>Статистика</b> — задачи и часы за неделю, месяц и всё время\n` +
+      `• 🏆 <b>Пятничный отчёт</b> — каждую пятницу в 18:00 бот подводит итоги недели и называет «Работягу недели»\n` +
+      `• ⏰ <b>Напоминание о таймере</b> — если таймер работает больше 4 часов, бот напишет в личку\n` +
+      `• 💬 <b>Мотивашка в обед</b> — каждый будний день в 13:00 случайная фраза в группу\n` +
+      `• 📵 <b>Выходные</b> — утренние и вечерние напоминания теперь только пн–пт\n\n` +
+      `⚠️ <b>Если ещё не подключил Zoho:</b>\n` +
+      `Напиши боту в личку → <b>🔗 Подключить Zoho</b>`,
       { parse_mode: "HTML" }
     );
   }
+
+  const remindedTasks = new Set(); // задачи, по которым уже отправили напоминание о долгом таймере
+
+  const motivations = [
+    "Половина дня позади — ты уже молодец! 💪",
+    "Самое время сделать перерыв и вернуться с новыми силами ☕",
+    "Ты справляешься отлично. Осталось совсем чуть-чуть! 🎯",
+    "Не забывай пить воду и двигаться — продуктивность скажет спасибо 💧",
+    "Каждая закрытая задача — это маленькая победа 🏆",
+    "Ты ближе к концу дня, чем к его началу. Держись! 🚀",
+    "Лучший способ сделать много — делать по одному 🧩",
+    "Сегодня хороший день, чтобы закрыть пару задач 😎",
+  ];
 
   const mondayJokes = [
     "Понедельник — это когда будильник звонит в 7 утра, а организм шлёт его куда подальше 📵",
@@ -746,5 +802,77 @@ export function startBot(app) {
       { parse_mode: "HTML" }
     );
     console.log("[Bot] Sent evening reminder");
+  });
+
+  // ── Мотивашка в обед: 13:00 Дубай (UTC+4 = 09:00 UTC), пн–пт ──
+  cron.schedule("0 9 * * 1-5", () => {
+    if (!GROUP_ID) return;
+    const msg = motivations[Math.floor(Math.random() * motivations.length)];
+    bot.sendMessage(GROUP_ID, `💬 ${msg}`, { parse_mode: "HTML" });
+  });
+
+  // ── Проверка долгих таймеров: каждые 30 минут ──
+  cron.schedule("*/30 * * * *", async () => {
+    const db = getDb();
+    try {
+      const cutoff = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
+      const q = await db.query(
+        `SELECT * FROM tg_tasks WHERE status='running' AND timer_started_at < $1`,
+        [cutoff]
+      );
+      for (const task of q.rows) {
+        if (remindedTasks.has(task.id)) continue;
+        remindedTasks.add(task.id);
+        const elapsed = getElapsed(task);
+        bot.sendMessage(task.assignee_chat_id,
+          `⏰ <b>Таймер работает уже ${fmt(elapsed)}!</b>\n\n` +
+          `Задача «${task.zoho_task_name}» всё ещё активна.\n` +
+          `Не забудь поставить на паузу или закрыть.`,
+          { parse_mode: "HTML" }
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.error("[Bot] Long timer check error:", e.message);
+    }
+  });
+
+  // ── Пятничный отчёт: 18:00 Дубай (UTC+4 = 14:00 UTC) ──
+  cron.schedule("0 14 * * 5", async () => {
+    if (!GROUP_ID) return;
+    const db = getDb();
+    try {
+      const monday = new Date();
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      monday.setHours(0, 0, 0, 0);
+
+      const q = await db.query(`
+        SELECT u.name, t.assignee_chat_id,
+               COUNT(*) AS tasks,
+               COALESCE(SUM(t.elapsed_seconds), 0) AS seconds
+        FROM tg_tasks t
+        LEFT JOIN tg_users u ON u.chat_id = t.assignee_chat_id
+        WHERE t.status='done' AND t.created_at >= $1
+        GROUP BY t.assignee_chat_id, u.name
+        ORDER BY seconds DESC
+      `, [monday.toISOString()]);
+
+      if (!q.rows.length) return;
+
+      const medals = ["🥇", "🥈", "🥉"];
+      const lines = q.rows.map((r, i) =>
+        `${medals[i] || "▪️"} <b>${r.name || "Неизвестный"}</b> — ${fmt(Number(r.seconds))} (${r.tasks} задач)`
+      ).join("\n");
+
+      const winner = q.rows[0];
+      bot.sendMessage(GROUP_ID,
+        `🏆 <b>Итоги недели!</b>\n\n` +
+        `${lines}\n\n` +
+        `🎉 Работяга недели: <b>${winner.name || "Неизвестный"}</b> — ${fmt(Number(winner.seconds))} залогировано!\n\n` +
+        `Отличная работа, команда! Хороших выходных 🎉`,
+        { parse_mode: "HTML" }
+      );
+    } catch (e) {
+      console.error("[Bot] Weekly report error:", e.message);
+    }
   });
 }
