@@ -243,6 +243,9 @@ export async function completeZohoTask(db, user, projectId, taskId) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
   const payloads = [
     { percent_complete: 100, status: "Closed" },
+    { percent_complete: 100, status: "Completed" },
+    { percent_complete: 100, status: "Done" },
+    { percent_complete: 100, status: "closed" },
     { percent_complete: 100 },
   ];
 

@@ -424,10 +424,12 @@ async function handleCallback(query) {
 
       // Закрываем задачу — отдельно, всегда
       let taskClosed = false;
+      let closeErrMsg = "";
       try {
         await completeZohoTask(db2, zohoUser, task.zoho_project_id, task.zoho_task_id);
         taskClosed = true;
       } catch (closeErr) {
+        closeErrMsg = closeErr.message;
         console.error("[Bot] Close task error:", closeErr.message);
       }
 
@@ -436,7 +438,7 @@ async function handleCallback(query) {
       } else if (taskClosed) {
         bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\n⚠️ Время не удалось залогировать (${fmt(elapsed)}).`, { parse_mode: "HTML" });
       } else {
-        bot.sendMessage(chatId, `⚠️ Не удалось обновить задачу в Zoho. Проверьте доступ администратора к проекту.`);
+        bot.sendMessage(chatId, `⚠️ Не удалось закрыть задачу в Zoho.\n\n<code>${closeErrMsg}</code>`, { parse_mode: "HTML" });
       }
     } catch (e) {
       bot.sendMessage(chatId, `⚠️ Ошибка Zoho: ${e.message}`);
