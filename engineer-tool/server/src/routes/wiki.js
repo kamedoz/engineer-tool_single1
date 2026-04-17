@@ -9,6 +9,7 @@ const router = express.Router();
 async function notifyTelegram({ title, category, authorEmail }) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
+  console.log("[TG] notify called, token:", token ? "SET" : "MISSING", "chatId:", chatId || "MISSING");
   if (!token || !chatId) return;
   const appUrl = process.env.APP_URL || "https://engineer-tool-single1.onrender.com";
   const text =
