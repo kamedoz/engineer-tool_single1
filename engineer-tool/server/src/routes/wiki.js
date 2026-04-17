@@ -18,11 +18,13 @@ async function notifyTelegram({ title, category, authorEmail }) {
     `👤 <b>Автор:</b> ${authorEmail || "—"}\n` +
     `🔗 <a href="${appUrl}">${appUrl}</a>`;
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, message_thread_id: 1, text, parse_mode: "HTML" }),
     });
+    const json = await resp.json();
+    console.log("Telegram response:", JSON.stringify(json));
   } catch (e) {
     console.error("Telegram notify error:", e.message);
   }
