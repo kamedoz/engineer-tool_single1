@@ -21,7 +21,7 @@ async function notifyTelegram({ title, category, authorEmail }) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: chatId, message_thread_id: 1, text, parse_mode: "HTML" }),
     });
   } catch (e) {
     console.error("Telegram notify error:", e.message);
