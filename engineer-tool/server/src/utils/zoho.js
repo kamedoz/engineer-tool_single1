@@ -232,6 +232,13 @@ export async function createZohoTask(db, user, projectId, payload) {
   };
 }
 
+export async function updateZohoTaskOwner(db, user, projectId, taskId, ownerId) {
+  const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
+  return zohoApi(db, user, "POST", `/portal/${portalName}/projects/${projectId}/tasks/${taskId}/`, {
+    person_responsible: ownerId,
+  });
+}
+
 export async function completeZohoTask(db, user, projectId, taskId) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
   const payloads = [

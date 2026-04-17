@@ -9,6 +9,7 @@ import {
   createZohoTask,
   completeZohoTask,
   createZohoTimeLog,
+  updateZohoTaskOwner,
 } from "../utils/zoho.js";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -304,11 +305,39 @@ async function handleCallback(query) {
     const task = session.tasks?.[idx];
     const project = session.project;
 
+    if (!task) return;
+
+    const zohoUser = await getZohoUser(db);
+    const tgUser = await getTgUser(db, chatId);
+
+    // Найти Zoho portal_id пользователя по его email
+    let zohoOwnerId = "";
+    if (tgUser?.email && zohoUser) {
+      try {
+        const projectUsers = await fetchZohoProjectUsers(db, zohoUser, projectId);
+        const match = projectUsers.find(
+          (u) => u.email.toLowerCase() === tgUser.email.toLowerCase()
+        );
+        zohoOwnerId = match?.portal_id || match?.id || "";
+      } catch (e) {
+        console.error("[Bot] fetchZohoProjectUsers error:", e.message);
+      }
+    }
+
+    // Переназначить задачу в Zoho на пользователя
+    if (zohoOwnerId && zohoUser) {
+      try {
+        await updateZohoTaskOwner(db, zohoUser, projectId, task.id, zohoOwnerId);
+      } catch (e) {
+        console.error("[Bot] updateZohoTaskOwner error:", e.message);
+      }
+    }
+
     const taskRow = {
       id: uid(),
       zoho_project_id: projectId,
       zoho_project_name: project?.name || "",
-      zoho_task_id: taskId,
+      zoho_task_id: task.id,
       zoho_task_name: task?.name || "Задача",
       assignee_chat_id: String(chatId),
       creator_chat_id: String(chatId),
@@ -591,21 +620,14 @@ export function startBot() {
 
   const GROUP_ID = process.env.TELEGRAM_CHAT_ID;
 
-  // ── Приветственное сообщение (один раз при запуске) ──
+  // ── Уведомление об обновлении ──
   if (GROUP_ID) {
     bot.sendMessage(GROUP_ID,
-      `👋 <b>Привет, команда!</b>\n\n` +
-      `Я <b>Engineer Bot</b> — ваш помощник по задачам.\n\n` +
-      `🔧 <b>Что я умею:</b>\n` +
-      `• Получать задачи из Zoho Projects\n` +
-      `• Отправлять задачу прямо в личку исполнителю\n` +
-      `• Запускать таймер прямо в Telegram\n` +
-      `• Логировать время и закрывать задачу в Zoho одной кнопкой\n` +
-      `• Напоминать утром открыть задачи, вечером — закрыть\n\n` +
-      `📲 <b>Как начать:</b>\n` +
-      `Напишите мне в личку и нажмите <b>Старт</b> — я свяжу ваш Telegram с Zoho.\n\n` +
-      `🕙 Каждый день в <b>10:00</b> — напоминание открыть задачи\n` +
-      `🕕 Каждый день в <b>18:00</b> — напоминание закрыть задачи`,
+      `🔄 <b>Бот обновлён</b>\n\n` +
+      `📦 <b>Что изменилось:</b>\n` +
+      `• Задачи из раздела «Проекты» теперь назначаются на вас, а не на администратора — вы можете закрывать их самостоятельно\n\n` +
+      `🐛 <b>Исправлено:</b>\n` +
+      `• Ошибка назначения задач на чужой аккаунт при открытии через «📁 Проекты»`,
       { parse_mode: "HTML" }
     );
   }
