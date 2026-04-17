@@ -9,7 +9,6 @@ import {
   createZohoTask,
   completeZohoTask,
   createZohoTimeLog,
-  updateZohoTaskOwner,
 } from "../utils/zoho.js";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -306,32 +305,6 @@ async function handleCallback(query) {
     const project = session.project;
 
     if (!task) return;
-
-    const zohoUser = await getZohoUser(db);
-    const tgUser = await getTgUser(db, chatId);
-
-    // Найти Zoho portal_id пользователя по его email
-    let zohoOwnerId = "";
-    if (tgUser?.email && zohoUser) {
-      try {
-        const projectUsers = await fetchZohoProjectUsers(db, zohoUser, projectId);
-        const match = projectUsers.find(
-          (u) => u.email.toLowerCase() === tgUser.email.toLowerCase()
-        );
-        zohoOwnerId = match?.portal_id || match?.id || "";
-      } catch (e) {
-        console.error("[Bot] fetchZohoProjectUsers error:", e.message);
-      }
-    }
-
-    // Переназначить задачу в Zoho на пользователя
-    if (zohoOwnerId && zohoUser) {
-      try {
-        await updateZohoTaskOwner(db, zohoUser, projectId, task.id, zohoOwnerId);
-      } catch (e) {
-        console.error("[Bot] updateZohoTaskOwner error:", e.message);
-      }
-    }
 
     const taskRow = {
       id: uid(),
