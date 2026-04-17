@@ -419,8 +419,11 @@ async function handleCallback(query) {
       const db2 = getDb();
       const zohoUser = await getZohoUserForChat(db2, chatId);
 
-      // Логируем время — без owner (от имени токена)
+      // Логируем время от имени пользователя
       let timeLogged = false;
+      let timeErrMsg = "";
+      const tgUserForLog = await getTgUser(db2, chatId);
+      const ownerId = String(tgUserForLog?.zoho_user_id || zohoUser?.zoho_account_id || "").trim();
       if (elapsed > 60) {
         try {
           await createZohoTimeLog(
@@ -428,10 +431,11 @@ async function handleCallback(query) {
             task.zoho_project_id, task.zoho_task_id,
             elapsed,
             `Работа над задачей (Telegram бот)`,
-            "" // без owner — логируем от имени admin-токена
+            ownerId
           );
           timeLogged = true;
         } catch (timeErr) {
+          timeErrMsg = timeErr.message;
           console.error("[Bot] Time log error:", timeErr.message);
         }
       }
@@ -450,7 +454,7 @@ async function handleCallback(query) {
       if (taskClosed && timeLogged) {
         bot.sendMessage(chatId, `✅ Готово! Время <b>${fmt(elapsed)}</b> залогировано в Zoho. Задача закрыта.`, { parse_mode: "HTML" });
       } else if (taskClosed) {
-        bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\n⚠️ Время не удалось залогировать (${fmt(elapsed)}).`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\n⚠️ Время не удалось залогировать (${fmt(elapsed)}).\n\n<code>${timeErrMsg}</code>`, { parse_mode: "HTML" });
       } else {
         bot.sendMessage(chatId, `⚠️ Не удалось закрыть задачу в Zoho.\n\n<code>${closeErrMsg}</code>`, { parse_mode: "HTML" });
       }

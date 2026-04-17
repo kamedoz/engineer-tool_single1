@@ -67,6 +67,17 @@ r.get("/callback", async (req, res) => {
     try {
       const tokenData = await exchangeZohoCode(String(code));
       await storeZohoConnectionForBot(db, parsedState.chatId, tokenData, {});
+      // Получаем Zoho User ID для логирования времени
+      const tgUserRow = await db.query(`SELECT * FROM tg_users WHERE chat_id=$1`, [String(parsedState.chatId)]);
+      if (tgUserRow.rows?.[0]) {
+        try {
+          const accountData = await fetchZohoCurrentUser(db, tgUserRow.rows[0]);
+          const zohoUserId = String(accountData?.ZUID || accountData?.id || "").trim();
+          if (zohoUserId) {
+            await db.query(`UPDATE tg_users SET zoho_user_id=$1 WHERE chat_id=$2`, [zohoUserId, String(parsedState.chatId)]);
+          }
+        } catch (_) {}
+      }
       return res.send(`
         <html><body style="font-family:sans-serif;text-align:center;padding:40px">
           <h2>✅ Zoho подключён!</h2>
