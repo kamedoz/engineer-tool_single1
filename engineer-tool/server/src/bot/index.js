@@ -18,6 +18,19 @@ let bot = null;
 // In-memory session: chatId -> { state, data }
 const sessions = new Map();
 
+// ── Главное меню (постоянная клавиатура) ─────────────────
+const MAIN_MENU = {
+  reply_markup: {
+    keyboard: [
+      [{ text: "➕ Создать задачу" }, { text: "📁 Проекты" }],
+      [{ text: "👤 Мой профиль"   }, { text: "❓ Помощь"  }],
+    ],
+    resize_keyboard: true,
+    persistent: true,
+  },
+  parse_mode: "HTML",
+};
+
 // ── helpers ──────────────────────────────────────────────
 function uid() {
   return `tg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -68,10 +81,16 @@ function taskKeyboard(taskId, status) {
 
 // ── DB helpers ───────────────────────────────────────────
 async function getZohoUser(db) {
-  const q = await db.query(
+  // Приоритет: admin с токеном
+  const adminQ = await db.query(
+    `SELECT * FROM users WHERE zoho_refresh_token IS NOT NULL AND role='admin' ORDER BY created_at LIMIT 1`
+  );
+  if (adminQ.rows?.[0]) return adminQ.rows[0];
+  // Fallback: любой с токеном
+  const anyQ = await db.query(
     `SELECT * FROM users WHERE zoho_refresh_token IS NOT NULL ORDER BY created_at LIMIT 1`
   );
-  return q.rows?.[0] || null;
+  return anyQ.rows?.[0] || null;
 }
 
 async function getTgUser(db, chatId) {
@@ -125,15 +144,40 @@ async function handleStart(msg) {
   const existing = await getTgUser(db, chatId);
   if (existing) {
     return bot.sendMessage(chatId,
-      `👋 С возвращением, <b>${existing.name}</b>!\n\n` +
-      `/projects — список проектов\n/newtask — создать задачу`,
-      { parse_mode: "HTML" }
+      `👋 С возвращением, <b>${existing.name}</b>!\n\nВыбери действие:`,
+      MAIN_MENU
     );
   }
   const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || "User";
   sessions.set(chatId, { state: "await_email", name });
   bot.sendMessage(chatId,
     `👋 Привет, <b>${name}</b>!\n\nВведи свой email (как в Zoho), чтобы я мог назначать тебе задачи:`,
+    { parse_mode: "HTML" }
+  );
+}
+
+// ── Профиль ──────────────────────────────────────────────
+async function handleProfile(chatId) {
+  const db = getDb();
+  const user = await getTgUser(db, chatId);
+  if (!user) return bot.sendMessage(chatId, "Ты ещё не зарегистрирован. Нажми /start");
+  bot.sendMessage(chatId,
+    `👤 <b>Профиль</b>\n\n` +
+    `Имя: ${user.name}\n` +
+    `Email: ${user.email}\n\n` +
+    `Для смены email — напиши новый email сюда.`,
+    { parse_mode: "HTML" }
+  );
+}
+
+// ── Помощь ───────────────────────────────────────────────
+function handleHelp(chatId) {
+  bot.sendMessage(chatId,
+    `❓ <b>Как пользоваться ботом:</b>\n\n` +
+    `➕ <b>Создать задачу</b> — выбери проект, введи название, выбери исполнителя. Задача появится в Zoho и отправится исполнителю в личку.\n\n` +
+    `📁 <b>Проекты</b> — просмотр задач по проектам. Нажми на задачу, чтобы взять её себе.\n\n` +
+    `▶️ <b>Старт / ⏸ Пауза</b> — управление таймером прямо в сообщении.\n\n` +
+    `✅ <b>Закрыть задачу</b> — время улетает в Zoho, задача закрывается.`,
     { parse_mode: "HTML" }
   );
 }
@@ -200,8 +244,8 @@ async function handleCallback(query) {
       const project = projects.find((p) => p.id === projectId);
       if (!tasks.length) return bot.sendMessage(chatId, "Задач в проекте нет.");
       const keyboard = {
-        inline_keyboard: tasks.map((t) => ([
-          { text: `📌 ${t.name}`, callback_data: `task_${projectId}_${t.id}` },
+        inline_keyboard: tasks.map((t, idx) => ([
+          { text: `📌 ${t.name}`, callback_data: `task_${projectId}_idx${idx}` },
         ])),
       };
       sessions.set(chatId, { state: "task_list", projectId, project, tasks });
@@ -216,9 +260,11 @@ async function handleCallback(query) {
 
   // ── Выбор задачи → назначить на себя ──
   if (data.startsWith("task_")) {
-    const [, projectId, taskId] = data.split("_");
+    const parts = data.split("_");
+    const projectId = parts[1];
+    const idx = parseInt(parts[2].replace("idx", ""), 10);
     const session = sessions.get(chatId) || {};
-    const task = session.tasks?.find((t) => t.id === taskId);
+    const task = session.tasks?.[idx];
     const project = session.project;
 
     const taskRow = {
@@ -347,10 +393,9 @@ async function handleCallback(query) {
 
   // ── Выбор исполнителя при создании новой задачи ──
   if (data.startsWith("newtask_assign_")) {
-    const parts = data.slice(15).split("_");
-    const zohoUserId = parts[0];
+    const idx = parseInt(data.slice(15), 10);
     const session = sessions.get(chatId) || {};
-    const assignee = session.users?.find((u) => u.id === zohoUserId || u.portal_id === zohoUserId);
+    const assignee = session.users?.[idx];
 
     // Найти chat_id исполнителя по email
     const db2 = getDb();
@@ -414,20 +459,34 @@ async function handleText(msg) {
   const session = sessions.get(chatId);
   const db = getDb();
 
-  // Регистрация email
+  // ── Кнопки главного меню ──
+  if (text === "➕ Создать задачу") return handleNewTask(chatId);
+  if (text === "📁 Проекты")       return handleProjects(chatId);
+  if (text === "👤 Мой профиль")   return handleProfile(chatId);
+  if (text === "❓ Помощь")        return handleHelp(chatId);
+
+  // ── Регистрация email ──
   if (session?.state === "await_email") {
     const email = text.toLowerCase();
     if (!email.includes("@")) return bot.sendMessage(chatId, "Введи корректный email:");
     await saveTgUser(db, chatId, session.name, email);
     sessions.delete(chatId);
     return bot.sendMessage(chatId,
-      `✅ Готово! Ты зарегистрирован как <b>${session.name}</b> (${email}).\n\n` +
-      `/projects — список проектов\n/newtask — создать задачу`,
-      { parse_mode: "HTML" }
+      `✅ Готово! Ты зарегистрирован как <b>${session.name}</b> (${email}).\n\nВыбери действие:`,
+      MAIN_MENU
     );
   }
 
-  // Ввод названия новой задачи
+  // ── Смена email из профиля ──
+  if (!session && text.includes("@") && text.includes(".")) {
+    const user = await getTgUser(db, chatId);
+    if (user) {
+      await saveTgUser(db, chatId, user.name, text.toLowerCase());
+      return bot.sendMessage(chatId, `✅ Email обновлён: ${text.toLowerCase()}`);
+    }
+  }
+
+  // ── Ввод названия новой задачи ──
   if (session?.state === "newtask_enter_title") {
     sessions.set(chatId, { ...session, state: "newtask_select_assignee", title: text });
     bot.sendMessage(chatId, "⏳ Загружаю участников проекта...");
@@ -436,11 +495,11 @@ async function handleText(msg) {
       const users = await fetchZohoProjectUsers(db, zohoUser, session.projectId);
       sessions.set(chatId, { ...sessions.get(chatId), users });
       const keyboard = {
-        inline_keyboard: users.map((u) => ([
-          { text: `👤 ${u.name} (${u.email})`, callback_data: `newtask_assign_${u.id}` },
+        inline_keyboard: users.map((u, idx) => ([
+          { text: `👤 ${u.name} (${u.email})`, callback_data: `newtask_assign_${idx}` },
         ])),
       };
-      bot.sendMessage(chatId, "Выбери исполнителя:", { reply_markup: keyboard });
+      bot.sendMessage(chatId, "👤 Выбери исполнителя:", { reply_markup: keyboard });
     } catch (e) {
       bot.sendMessage(chatId, `❌ Ошибка: ${e.message}`);
     }
@@ -483,7 +542,7 @@ export function startBot() {
       `• Логировать время и закрывать задачу в Zoho одной кнопкой\n` +
       `• Напоминать утром открыть задачи, вечером — закрыть\n\n` +
       `📲 <b>Как начать:</b>\n` +
-      `Напишите мне в личку /start — и я свяжу ваш Telegram с Zoho.\n\n` +
+      `Напишите мне в личку и нажмите <b>Старт</b> — я свяжу ваш Telegram с Zoho.\n\n` +
       `🕙 Каждый день в <b>10:00</b> — напоминание открыть задачи\n` +
       `🕕 Каждый день в <b>18:00</b> — напоминание закрыть задачи`,
       { parse_mode: "HTML" }
@@ -496,7 +555,7 @@ export function startBot() {
     bot.sendMessage(GROUP_ID,
       `🌅 <b>Доброе утро, команда!</b>\n\n` +
       `Не забудьте открыть задачи на сегодня в боте — запустите таймер, как только начнёте работу.\n\n` +
-      `📲 Напишите мне /newtask чтобы взять задачу из Zoho.`,
+      `📲 Напишите мне в личку и нажмите кнопку <b>➕ Создать задачу</b>.`,
       { parse_mode: "HTML" }
     );
     console.log("[Bot] Sent morning reminder");
