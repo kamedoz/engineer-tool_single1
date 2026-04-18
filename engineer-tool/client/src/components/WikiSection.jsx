@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WikiAPI } from "../api.js";
+import WikiEditor, { ArticleBody } from "./WikiEditor.jsx";
 
 function toBase64(file) {
   return new Promise((res, rej) => {
@@ -109,7 +110,7 @@ function ArticleForm({ initial, categories, onSave, onCancel, t }) {
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("articleTitle")} />
       <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t("categoryRequired")} list="wiki-categories" />
       <datalist id="wiki-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist>
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={t("writeArticle")} style={{ minHeight: 180 }} />
+      <WikiEditor value={body} onChange={setBody} />
       <MediaUploader items={images} onChange={setImages} />
       {error ? <div style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</div> : null}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -322,8 +323,16 @@ function ArticleCard({ article, me, canEdit, canDelete, onEdit, onDelete, onQuot
       </div>
 
       {expanded ? (
-        <div style={{ padding: "0 14px 14px", display: "grid", gap: 12 }}>
-          {article.body ? <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, wordBreak: "break-word" }}>{article.body}</div> : null}
+        <div
+          style={{ padding: "0 14px 14px", display: "grid", gap: 12 }}
+          onWikiImgClick={(e) => setOpenImage(e.detail?.src)}
+          ref={(el) => {
+            if (!el) return;
+            el.onwikiimgclick = undefined;
+            el.addEventListener("wiki-img-click", (e) => setOpenImage(e.detail?.src));
+          }}
+        >
+          {article.body ? <ArticleBody body={article.body} /> : null}
           {article.images?.length ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {article.images.map((src, idx) => (
