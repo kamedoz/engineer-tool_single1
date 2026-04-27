@@ -734,7 +734,7 @@ export function startBot(app) {
       `🔄 <b>Engineer Tool обновлён!</b>\n\n` +
       `🆕 <b>Что нового:</b>\n` +
       `• 🌆 Напоминание о конце рабочего дня теперь приходит в <b>19:00</b> по Дубаю\n` +
-      `• 📅 Вечернее напоминание теперь работает <b>каждый день</b>\n` +
+      `• 📅 Вечернее напоминание теперь работает только <b>по будням</b>\n` +
       `• 🧹 Удалённые сообщения в общем и личном чате теперь исчезают полностью, без текста <code>[message deleted]</code>\n\n` +
       (appUrl ? `🔗 <a href="${appUrl}">Открыть Engineer Tool</a>` : `✅ Обновление применено`),
       { parse_mode: "HTML" }
@@ -789,8 +789,8 @@ export function startBot(app) {
     console.log("[Bot] Sent morning reminder");
   });
 
-  // ── Вечернее напоминание: 19:00 Дубай (UTC+4 = 15:00 UTC), каждый день ──
-  cron.schedule("0 15 * * *", () => {
+  // ── Вечернее напоминание: 19:00 Дубай (UTC+4 = 15:00 UTC), пн–пт ──
+  cron.schedule("0 15 * * 1-5", () => {
     if (!GROUP_ID) return;
     bot.sendMessage(GROUP_ID,
       `🌆 <b>Конец рабочего дня!</b>\n\n` +
