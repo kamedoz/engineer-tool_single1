@@ -29,6 +29,8 @@ export function buildZohoAuthUrl(userId) {
     "ZohoProjects.tasks.ALL",
     "ZohoProjects.timesheets.ALL",
     "ZohoProjects.users.READ",
+    "ZohoProjects.documents.READ",
+    "ZohoPC.files.READ",
   ].join(",");
 
   const url = new URL(`${cfg.accountsBase}/oauth/v2/auth`);
@@ -69,6 +71,20 @@ async function parseZohoResponse(res) {
 async function fetchZoho(url, options = {}) {
   const res = await fetch(url, options);
   return parseZohoResponse(res);
+}
+
+async function fetchZohoBinary(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Zoho HTTP ${res.status}`);
+  }
+  const contentType = res.headers.get("content-type") || "application/octet-stream";
+  const arrayBuffer = await res.arrayBuffer();
+  return {
+    bytes: Buffer.from(arrayBuffer),
+    contentType,
+  };
 }
 
 async function refreshAccessToken(user) {
@@ -134,6 +150,8 @@ export function buildZohoAuthUrlForBot(chatId) {
     "ZohoProjects.tasks.ALL",
     "ZohoProjects.timesheets.ALL",
     "ZohoProjects.users.READ",
+    "ZohoProjects.documents.READ",
+    "ZohoPC.files.READ",
   ].join(",");
 
   const url = new URL(`${cfg.accountsBase}/oauth/v2/auth`);
@@ -202,6 +220,16 @@ async function zohoApi(db, user, method, path, body, query = {}) {
   });
 }
 
+async function zohoDownload(db, user, url) {
+  const token = await getZohoAccessToken(db, user);
+  return fetchZohoBinary(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+    },
+  });
+}
+
 export async function fetchZohoProjects(db, user) {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
   const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/`);
@@ -265,6 +293,40 @@ export async function fetchZohoProjectUsers(db, user, projectId) {
       email,
     };
   });
+}
+
+export async function fetchZohoProjectDocuments(db, user, projectId) {
+  const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
+  const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/documents/`);
+  const documents = Array.isArray(data?.documents) ? data.documents : Array.isArray(data) ? data : [];
+  return documents.map((doc) => ({
+    id: String(doc.id || doc.id_string || doc.document_id || ""),
+    name: doc.name || doc.filename || doc.display_name || "Unnamed file",
+    size: Number(doc.size || doc.file_size || 0) || 0,
+    uploaded_at: doc.uploaded_time || doc.created_time || doc.created_at || "",
+    download_url: doc.docs_download_url || doc.download_url || "",
+    content_type: doc.content_type || doc.CONTENT_TYPE || "",
+    source: "project",
+  }));
+}
+
+export async function fetchZohoTaskAttachments(db, user, projectId, taskId) {
+  const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
+  const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/tasks/${taskId}/attachments/`);
+  const attachments = Array.isArray(data?.attachments) ? data.attachments : Array.isArray(data) ? data : [];
+  return attachments.map((file) => ({
+    id: String(file.RESOURCE_ID || file.id || file.id_string || ""),
+    name: file.FILENAME || file.filename || file.name || "Unnamed file",
+    size: Number(file.SIZE || file.size || 0) || 0,
+    uploaded_at: file.UPLOADED_TIME || file.uploaded_time || "",
+    download_url: file.DOWNLOAD_URL || file.download_url || "",
+    content_type: file.CONTENT_TYPE || file.content_type || "",
+    source: "task",
+  }));
+}
+
+export async function downloadZohoFile(db, user, fileUrl) {
+  return zohoDownload(db, user, fileUrl);
 }
 
 export async function createZohoTask(db, user, projectId, payload) {

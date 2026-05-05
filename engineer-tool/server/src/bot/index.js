@@ -6,6 +6,9 @@ import {
   fetchZohoProjects,
   fetchZohoTasks,
   fetchZohoProjectUsers,
+  fetchZohoProjectDocuments,
+  fetchZohoTaskAttachments,
+  downloadZohoFile,
   createZohoTask,
   completeZohoTask,
   createZohoTimeLog,
@@ -94,6 +97,43 @@ function taskKeyboard(taskId, status) {
 }
 
 // ── DB helpers ───────────────────────────────────────────
+function taskKeyboardWithFiles(taskId, status) {
+  if (status === "done") return { inline_keyboard: [] };
+  if (status === "running") {
+    return {
+      inline_keyboard: [[
+        { text: "Pause", callback_data: `pause_${taskId}` },
+        { text: "Close task", callback_data: `close_${taskId}` },
+      ], [
+        { text: "Project files", callback_data: `files_${taskId}` },
+      ]],
+    };
+  }
+  return {
+    inline_keyboard: [[
+      { text: "Start", callback_data: `start_${taskId}` },
+      { text: "Close task", callback_data: `close_${taskId}` },
+    ], [
+      { text: "Project files", callback_data: `files_${taskId}` },
+    ]],
+  };
+}
+
+function safeFileName(name) {
+  return String(name || "zoho-file")
+    .replace(/[\\/:*?"<>|]+/g, "_")
+    .replace(/\s+/g, " ")
+    .trim() || "zoho-file";
+}
+
+function getChatSession(chatId) {
+  return sessions.get(chatId) || {};
+}
+
+function setChatSession(chatId, patch) {
+  sessions.set(chatId, { ...getChatSession(chatId), ...patch });
+}
+
 async function getZohoUser(db) {
   // Приоритет: admin с токеном
   const adminQ = await db.query(
@@ -151,7 +191,7 @@ async function updateTaskMessage(db, task) {
       chat_id: task.assignee_chat_id,
       message_id: Number(task.tg_message_id),
       parse_mode: "HTML",
-      reply_markup: taskKeyboard(task.id, task.status),
+      reply_markup: taskKeyboardWithFiles(task.id, task.status),
     });
   } catch (_) {}
 }
@@ -161,7 +201,7 @@ async function sendTaskToAssignee(db, assigneeChatId, taskRow) {
   const elapsed = getElapsed(taskRow);
   const msg = await bot.sendMessage(assigneeChatId, taskCard(taskRow, elapsed), {
     parse_mode: "HTML",
-    reply_markup: taskKeyboard(taskRow.id, taskRow.status),
+    reply_markup: taskKeyboardWithFiles(taskRow.id, taskRow.status),
   });
   await db.query(`UPDATE tg_tasks SET tg_message_id=$1 WHERE id=$2`, [
     String(msg.message_id), taskRow.id,
@@ -169,6 +209,100 @@ async function sendTaskToAssignee(db, assigneeChatId, taskRow) {
 }
 
 // ── /start ───────────────────────────────────────────────
+async function showTaskFiles(chatId, taskId) {
+  const db = getDb();
+  const task = await getTgTask(db, taskId);
+  if (!task) {
+    await cleanSend(chatId, "Task not found.");
+    return;
+  }
+
+  const zohoUser = await getZohoUserForChat(db, chatId);
+  if (!zohoUser) {
+    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    return;
+  }
+
+  await cleanSend(chatId, "Loading project files and task attachments...");
+
+  const [projectFilesResult, taskFilesResult] = await Promise.allSettled([
+    fetchZohoProjectDocuments(db, zohoUser, task.zoho_project_id),
+    fetchZohoTaskAttachments(db, zohoUser, task.zoho_project_id, task.zoho_task_id),
+  ]);
+
+  const projectFiles = projectFilesResult.status === "fulfilled" ? projectFilesResult.value : [];
+  const taskFiles = taskFilesResult.status === "fulfilled" ? taskFilesResult.value : [];
+  const files = [...taskFiles, ...projectFiles]
+    .filter((file) => file.download_url)
+    .sort((a, b) => String(b.uploaded_at || "").localeCompare(String(a.uploaded_at || "")))
+    .slice(0, 20);
+
+  if (!files.length) {
+    const projectErr = projectFilesResult.status === "rejected" ? projectFilesResult.reason?.message : "";
+    const taskErr = taskFilesResult.status === "rejected" ? taskFilesResult.reason?.message : "";
+    const hint = projectErr || taskErr
+      ? "\n\nIf files are missing, reconnect Zoho in the bot to refresh file permissions."
+      : "";
+    await cleanSend(chatId, `No downloadable Zoho files were found for this task.${hint}`);
+    return;
+  }
+
+  const session = getChatSession(chatId);
+  const fileMaps = { ...(session.fileMaps || {}), [taskId]: files };
+  setChatSession(chatId, { fileMaps });
+
+  const keyboard = {
+    inline_keyboard: files.map((file, idx) => ([
+      { text: `${file.source === "task" ? "[Task]" : "[Project]"} ${file.name}`, callback_data: `file:${taskId}:${idx}` },
+    ])),
+  };
+
+  await cleanSend(
+    chatId,
+    `Task: ${task.zoho_task_name}\nProject: ${task.zoho_project_name}\n\nChoose a file to download:`,
+    { reply_markup: keyboard }
+  );
+}
+
+async function sendTaskFile(chatId, taskId, fileIndex) {
+  const db = getDb();
+  const session = getChatSession(chatId);
+  const files = session.fileMaps?.[taskId] || [];
+  const file = files[fileIndex];
+  if (!file) {
+    await cleanSend(chatId, "The file list is outdated. Open project files again.");
+    return;
+  }
+
+  const zohoUser = await getZohoUserForChat(db, chatId);
+  if (!zohoUser) {
+    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    return;
+  }
+
+  await bot.sendMessage(chatId, `Downloading file: ${file.name}`);
+
+  try {
+    const downloaded = await downloadZohoFile(db, zohoUser, file.download_url);
+    await bot.sendDocument(
+      chatId,
+      downloaded.bytes,
+      {
+        caption: `${file.name}\nSource: ${file.source === "task" ? "task attachment" : "project file"}`,
+      },
+      {
+        filename: safeFileName(file.name),
+        contentType: downloaded.contentType || file.content_type || "application/octet-stream",
+      }
+    );
+  } catch (e) {
+    await bot.sendMessage(
+      chatId,
+      `Could not send the file.\n\n${e.message}\n\nReconnect Zoho in the bot if this connection is old.`
+    );
+  }
+}
+
 async function handleStart(msg) {
   const chatId = msg.chat.id;
   const db = getDb();
@@ -350,6 +484,20 @@ async function handleCallback(query) {
   const db = getDb();
 
   await bot.answerCallbackQuery(query.id);
+
+  if (data.startsWith("files_")) {
+    const taskId = data.slice(6);
+    await showTaskFiles(chatId, taskId);
+    return;
+  }
+
+  if (data.startsWith("file:")) {
+    const [, taskId, fileIndexRaw] = data.split(":");
+    const fileIndex = Number(fileIndexRaw);
+    if (!taskId || Number.isNaN(fileIndex)) return;
+    await sendTaskFile(chatId, taskId, fileIndex);
+    return;
+  }
 
   // ── Выбор проекта (просмотр задач) ──
   if (data.startsWith("proj_")) {
