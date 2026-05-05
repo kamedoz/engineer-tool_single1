@@ -6,6 +6,7 @@ import {
   fetchZohoProjects,
   fetchZohoTasks,
   fetchZohoProjectUsers,
+  fetchZohoProjectFolders,
   fetchZohoProjectDocuments,
   fetchZohoTaskAttachments,
   downloadZohoFile,
@@ -134,6 +135,21 @@ function setChatSession(chatId, patch) {
   sessions.set(chatId, { ...getChatSession(chatId), ...patch });
 }
 
+function buildFolderKeyboard(taskId, folders, files, folderId = "") {
+  const rows = [];
+  const scope = folderId || "root";
+  if (folderId) {
+    rows.push([{ text: "Back to root", callback_data: `files_${taskId}` }]);
+  }
+  folders.forEach((folder) => {
+    rows.push([{ text: `[Folder] ${folder.name}`, callback_data: `folder:${taskId}:${folder.id}` }]);
+  });
+  files.forEach((file, idx) => {
+    rows.push([{ text: `${file.source === "task" ? "[Task]" : "[Project]"} ${file.name}`, callback_data: `file:${taskId}:${scope}:${idx}` }]);
+  });
+  return { inline_keyboard: rows };
+}
+
 async function getZohoUser(db) {
   // Приоритет: admin с токеном
   const adminQ = await db.query(
@@ -225,22 +241,30 @@ async function showTaskFiles(chatId, taskId) {
 
   await cleanSend(chatId, "Loading project files and task attachments...");
 
-  const [projectFilesResult, taskFilesResult] = await Promise.allSettled([
+  const [projectFilesResult, taskFilesResult, foldersResult] = await Promise.allSettled([
     fetchZohoProjectDocuments(db, zohoUser, task.zoho_project_id),
     fetchZohoTaskAttachments(db, zohoUser, task.zoho_project_id, task.zoho_task_id),
+    fetchZohoProjectFolders(db, zohoUser, task.zoho_project_id),
   ]);
 
   const projectFiles = projectFilesResult.status === "fulfilled" ? projectFilesResult.value : [];
   const taskFiles = taskFilesResult.status === "fulfilled" ? taskFilesResult.value : [];
+  const folders = foldersResult.status === "fulfilled" ? foldersResult.value : [];
   const files = [...taskFiles, ...projectFiles]
     .filter((file) => file.download_url)
     .sort((a, b) => String(b.uploaded_at || "").localeCompare(String(a.uploaded_at || "")))
     .slice(0, 20);
+  const rootFolders = folders.filter((folder) => !folder.parent_id || folder.parent_id === "crmworkspace");
+  const rootFiles = projectFiles
+    .filter((file) => file.download_url)
+    .sort((a, b) => String(b.uploaded_at || "").localeCompare(String(a.uploaded_at || "")))
+    .slice(0, 20);
 
-  if (!files.length) {
+  if (!files.length && !rootFolders.length) {
     const projectErr = projectFilesResult.status === "rejected" ? projectFilesResult.reason?.message : "";
     const taskErr = taskFilesResult.status === "rejected" ? taskFilesResult.reason?.message : "";
-    const hint = projectErr || taskErr
+    const folderErr = foldersResult.status === "rejected" ? foldersResult.reason?.message : "";
+    const hint = projectErr || taskErr || folderErr
       ? "\n\nIf files are missing, reconnect Zoho in the bot to refresh file permissions."
       : "";
     await cleanSend(chatId, `No downloadable Zoho files were found for this task.${hint}`);
@@ -248,19 +272,51 @@ async function showTaskFiles(chatId, taskId) {
   }
 
   const session = getChatSession(chatId);
-  const fileMaps = { ...(session.fileMaps || {}), [taskId]: files };
-  setChatSession(chatId, { fileMaps });
+  const rootCombinedFiles = [...taskFiles, ...rootFiles].slice(0, 20);
+  const fileMaps = { ...(session.fileMaps || {}), [taskId]: files, [`${taskId}:root`]: rootCombinedFiles };
+  const folderMaps = { ...(session.folderMaps || {}), [taskId]: folders };
+  setChatSession(chatId, { fileMaps, folderMaps });
 
-  const keyboard = {
-    inline_keyboard: files.map((file, idx) => ([
-      { text: `${file.source === "task" ? "[Task]" : "[Project]"} ${file.name}`, callback_data: `file:${taskId}:${idx}` },
-    ])),
-  };
+  const keyboard = buildFolderKeyboard(taskId, rootFolders, rootCombinedFiles);
 
   await cleanSend(
     chatId,
-    `Task: ${task.zoho_task_name}\nProject: ${task.zoho_project_name}\n\nChoose a file to download:`,
+    `Task: ${task.zoho_task_name}\nProject: ${task.zoho_project_name}\n\nChoose a folder or file:`,
     { reply_markup: keyboard }
+  );
+}
+
+async function showTaskFolder(chatId, taskId, folderId) {
+  const db = getDb();
+  const task = await getTgTask(db, taskId);
+  if (!task) {
+    await cleanSend(chatId, "Task not found.");
+    return;
+  }
+
+  const zohoUser = await getZohoUserForChat(db, chatId);
+  if (!zohoUser) {
+    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    return;
+  }
+
+  const session = getChatSession(chatId);
+  const folderMaps = session.folderMaps || {};
+  const allFolders = folderMaps[taskId] || await fetchZohoProjectFolders(db, zohoUser, task.zoho_project_id);
+  const currentFolder = allFolders.find((folder) => folder.id === folderId);
+  const childFolders = allFolders.filter((folder) => folder.parent_id === folderId);
+  const files = await fetchZohoProjectDocuments(db, zohoUser, task.zoho_project_id, folderId);
+  const storedFiles = {
+    ...(session.fileMaps || {}),
+    [taskId]: session.fileMaps?.[taskId] || [],
+    [`${taskId}:${folderId}`]: files.filter((file) => file.download_url).slice(0, 20),
+  };
+  setChatSession(chatId, { folderMaps: { ...folderMaps, [taskId]: allFolders }, fileMaps: storedFiles });
+
+  await cleanSend(
+    chatId,
+    `Folder: ${currentFolder?.name || folderId}\nProject: ${task.zoho_project_name}\n\nChoose a subfolder or file:`,
+    { reply_markup: buildFolderKeyboard(taskId, childFolders, storedFiles[`${taskId}:${folderId}`], folderId) }
   );
 }
 
@@ -271,6 +327,46 @@ async function sendTaskFile(chatId, taskId, fileIndex) {
   const file = files[fileIndex];
   if (!file) {
     await cleanSend(chatId, "The file list is outdated. Open project files again.");
+    return;
+  }
+
+  const zohoUser = await getZohoUserForChat(db, chatId);
+  if (!zohoUser) {
+    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    return;
+  }
+
+  await bot.sendMessage(chatId, `Downloading file: ${file.name}`);
+
+  try {
+    const downloaded = await downloadZohoFile(db, zohoUser, file.download_url);
+    await bot.sendDocument(
+      chatId,
+      downloaded.bytes,
+      {
+        caption: `${file.name}\nSource: ${file.source === "task" ? "task attachment" : "project file"}`,
+      },
+      {
+        filename: safeFileName(file.name),
+        contentType: downloaded.contentType || file.content_type || "application/octet-stream",
+      }
+    );
+  } catch (e) {
+    await bot.sendMessage(
+      chatId,
+      `Could not send the file.\n\n${e.message}\n\nReconnect Zoho in the bot if this connection is old.`
+    );
+  }
+}
+
+async function sendScopedTaskFile(chatId, taskId, scope, fileIndex) {
+  const db = getDb();
+  const session = getChatSession(chatId);
+  const key = scope === "root" ? `${taskId}:root` : `${taskId}:${scope}`;
+  const files = session.fileMaps?.[key] || [];
+  const file = files[fileIndex];
+  if (!file) {
+    await cleanSend(chatId, "The file list is outdated. Open the folder again.");
     return;
   }
 
@@ -492,10 +588,17 @@ async function handleCallback(query) {
   }
 
   if (data.startsWith("file:")) {
-    const [, taskId, fileIndexRaw] = data.split(":");
+    const [, taskId, scope, fileIndexRaw] = data.split(":");
     const fileIndex = Number(fileIndexRaw);
     if (!taskId || Number.isNaN(fileIndex)) return;
-    await sendTaskFile(chatId, taskId, fileIndex);
+    await sendScopedTaskFile(chatId, taskId, scope || "root", fileIndex);
+    return;
+  }
+
+  if (data.startsWith("folder:")) {
+    const [, taskId, folderId] = data.split(":");
+    if (!taskId || !folderId) return;
+    await showTaskFolder(chatId, taskId, folderId);
     return;
   }
 

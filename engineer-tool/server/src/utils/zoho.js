@@ -295,9 +295,16 @@ export async function fetchZohoProjectUsers(db, user, projectId) {
   });
 }
 
-export async function fetchZohoProjectDocuments(db, user, projectId) {
+export async function fetchZohoProjectDocuments(db, user, projectId, folderId = "") {
   const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
-  const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/documents/`);
+  const data = await zohoApi(
+    db,
+    user,
+    "GET",
+    `/portal/${portalName}/projects/${projectId}/documents/`,
+    undefined,
+    folderId ? { folder_id: folderId } : {}
+  );
   const documents = Array.isArray(data?.documents) ? data.documents : Array.isArray(data) ? data : [];
   return documents.map((doc) => ({
     id: String(doc.id || doc.id_string || doc.document_id || ""),
@@ -307,6 +314,30 @@ export async function fetchZohoProjectDocuments(db, user, projectId) {
     download_url: doc.docs_download_url || doc.download_url || "",
     content_type: doc.content_type || doc.CONTENT_TYPE || "",
     source: "project",
+  }));
+}
+
+function flattenZohoFolders(folders, acc = []) {
+  for (const folder of folders) {
+    acc.push(folder);
+    if (Array.isArray(folder.children) && folder.children.length) {
+      flattenZohoFolders(folder.children, acc);
+    }
+  }
+  return acc;
+}
+
+export async function fetchZohoProjectFolders(db, user, projectId) {
+  const portalName = user?.zoho_portal_name || getZohoConfig().portalName;
+  const data = await zohoApi(db, user, "GET", `/portal/${portalName}/projects/${projectId}/folders/`);
+  const rootFolders = Array.isArray(data?.folders) ? data.folders : Array.isArray(data) ? data : [];
+  const folders = flattenZohoFolders(rootFolders);
+  return folders.map((folder) => ({
+    id: String(folder.res_id || folder.id || folder.id_string || ""),
+    name: folder.res_name || folder.name || "Unnamed folder",
+    parent_id: String(folder.parent_folder_id || folder.parent_id || ""),
+    is_folder: true,
+    has_children: Boolean(folder.subfolder || (Array.isArray(folder.children) && folder.children.length)),
   }));
 }
 
