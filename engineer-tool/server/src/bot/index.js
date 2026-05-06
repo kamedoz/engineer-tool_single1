@@ -1,4 +1,4 @@
-// server/src/bot/index.js — Zoho Task Bot
+﻿// server/src/bot/index.js вЂ” Zoho Task Bot
 import TelegramBot from "node-telegram-bot-api";
 import cron from "node-cron";
 import { getDb } from "../db.js";
@@ -23,13 +23,13 @@ let bot = null;
 // In-memory session: chatId -> { state, data }
 const sessions = new Map();
 
-// ── Главное меню (постоянная клавиатура) ─────────────────
+// в”Ђв”Ђ Р“Р»Р°РІРЅРѕРµ РјРµРЅСЋ (РїРѕСЃС‚РѕСЏРЅРЅР°СЏ РєР»Р°РІРёР°С‚СѓСЂР°) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 const MAIN_MENU = {
   reply_markup: {
     keyboard: [
-      [{ text: "➕ Создать задачу" }, { text: "📁 Проекты" }],
-      [{ text: "👤 Мой профиль"   }, { text: "🔗 Подключить Zoho" }],
-      [{ text: "📊 Статистика"    }, { text: "❓ Помощь" }],
+      [{ text: "вћ• РЎРѕР·РґР°С‚СЊ Р·Р°РґР°С‡Сѓ" }, { text: "рџ“Ѓ РџСЂРѕРµРєС‚С‹" }],
+      [{ text: "рџ‘¤ РњРѕР№ РїСЂРѕС„РёР»СЊ"   }, { text: "рџ”— РџРѕРґРєР»СЋС‡РёС‚СЊ Zoho" }],
+      [{ text: "рџ“Љ РЎС‚Р°С‚РёСЃС‚РёРєР°"    }, { text: "вќ“ РџРѕРјРѕС‰СЊ" }],
     ],
     resize_keyboard: true,
     persistent: true,
@@ -37,9 +37,9 @@ const MAIN_MENU = {
   parse_mode: "HTML",
 };
 
-// ── helpers ──────────────────────────────────────────────
+// в”Ђв”Ђ helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-// Удаляет предыдущее сообщение бота из сессии и отправляет новое
+// РЈРґР°Р»СЏРµС‚ РїСЂРµРґС‹РґСѓС‰РµРµ СЃРѕРѕР±С‰РµРЅРёРµ Р±РѕС‚Р° РёР· СЃРµСЃСЃРёРё Рё РѕС‚РїСЂР°РІР»СЏРµС‚ РЅРѕРІРѕРµ
 async function cleanSend(chatId, text, options = {}) {
   const session = sessions.get(chatId) || {};
   if (session._lastMsgId) {
@@ -70,12 +70,12 @@ function getElapsed(task) {
 }
 
 function taskCard(task, elapsed) {
-  const status = task.status === "running" ? "🟢 Идёт" : task.status === "paused" ? "⏸ Пауза" : task.status === "done" ? "✅ Закрыта" : "⏳ Ожидает";
+  const status = task.status === "running" ? "рџџў РРґС‘С‚" : task.status === "paused" ? "вЏё РџР°СѓР·Р°" : task.status === "done" ? "вњ… Р—Р°РєСЂС‹С‚Р°" : "вЏі РћР¶РёРґР°РµС‚";
   return (
-    `📋 <b>${task.zoho_task_name}</b>\n` +
-    `📁 Проект: ${task.zoho_project_name}\n` +
+    `рџ“‹ <b>${task.zoho_task_name}</b>\n` +
+    `рџ“Ѓ РџСЂРѕРµРєС‚: ${task.zoho_project_name}\n` +
     `${status}\n` +
-    `⏱ Время: <b>${fmt(elapsed)}</b>`
+    `вЏ± Р’СЂРµРјСЏ: <b>${fmt(elapsed)}</b>`
   );
 }
 
@@ -84,20 +84,20 @@ function taskKeyboard(taskId, status) {
   if (status === "running") {
     return {
       inline_keyboard: [[
-        { text: "⏸ Пауза", callback_data: `pause_${taskId}` },
-        { text: "✅ Закрыть задачу", callback_data: `close_${taskId}` },
+        { text: "вЏё РџР°СѓР·Р°", callback_data: `pause_${taskId}` },
+        { text: "вњ… Р—Р°РєСЂС‹С‚СЊ Р·Р°РґР°С‡Сѓ", callback_data: `close_${taskId}` },
       ]],
     };
   }
   return {
     inline_keyboard: [[
-      { text: "▶️ Старт", callback_data: `start_${taskId}` },
-      { text: "✅ Закрыть задачу", callback_data: `close_${taskId}` },
+      { text: "в–¶пёЏ РЎС‚Р°СЂС‚", callback_data: `start_${taskId}` },
+      { text: "вњ… Р—Р°РєСЂС‹С‚СЊ Р·Р°РґР°С‡Сѓ", callback_data: `close_${taskId}` },
     ]],
   };
 }
 
-// ── DB helpers ───────────────────────────────────────────
+// в”Ђв”Ђ DB helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 function taskKeyboardWithFiles(taskId, status) {
   if (status === "done") return { inline_keyboard: [] };
   if (status === "running") {
@@ -151,25 +151,25 @@ function buildFolderKeyboard(taskId, folders, files, folderId = "") {
 }
 
 async function getZohoUser(db) {
-  // Приоритет: admin с токеном
+  // РџСЂРёРѕСЂРёС‚РµС‚: admin СЃ С‚РѕРєРµРЅРѕРј
   const adminQ = await db.query(
     `SELECT * FROM users WHERE zoho_refresh_token IS NOT NULL AND role='admin' ORDER BY created_at LIMIT 1`
   );
   if (adminQ.rows?.[0]) return adminQ.rows[0];
-  // Fallback: любой с токеном
+  // Fallback: Р»СЋР±РѕР№ СЃ С‚РѕРєРµРЅРѕРј
   const anyQ = await db.query(
     `SELECT * FROM users WHERE zoho_refresh_token IS NOT NULL ORDER BY created_at LIMIT 1`
   );
   return anyQ.rows?.[0] || null;
 }
 
-// Возвращает Zoho-аккаунт самого пользователя.
-// Приоритет: собственный токен в tg_users → users по email → admin fallback
+// Р’РѕР·РІСЂР°С‰Р°РµС‚ Zoho-Р°РєРєР°СѓРЅС‚ СЃР°РјРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
+// РџСЂРёРѕСЂРёС‚РµС‚: СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ С‚РѕРєРµРЅ РІ tg_users в†’ users РїРѕ email в†’ admin fallback
 async function getZohoUserForChat(db, chatId) {
   const tgUser = await getTgUser(db, chatId);
-  // 1. Собственный Zoho-токен подключён прямо в боте
+  // 1. РЎРѕР±СЃС‚РІРµРЅРЅС‹Р№ Zoho-С‚РѕРєРµРЅ РїРѕРґРєР»СЋС‡С‘РЅ РїСЂСЏРјРѕ РІ Р±РѕС‚Рµ
   if (tgUser?.zoho_refresh_token) return tgUser;
-  // 2. Аккаунт в веб-приложении с тем же email
+  // 2. РђРєРєР°СѓРЅС‚ РІ РІРµР±-РїСЂРёР»РѕР¶РµРЅРёРё СЃ С‚РµРј Р¶Рµ email
   if (tgUser?.email) {
     const q = await db.query(
       `SELECT * FROM users WHERE LOWER(email)=LOWER($1) AND zoho_refresh_token IS NOT NULL LIMIT 1`,
@@ -212,7 +212,7 @@ async function updateTaskMessage(db, task) {
   } catch (_) {}
 }
 
-// ── Send task to assignee ────────────────────────────────
+// в”Ђв”Ђ Send task to assignee в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function sendTaskToAssignee(db, assigneeChatId, taskRow) {
   const elapsed = getElapsed(taskRow);
   const msg = await bot.sendMessage(assigneeChatId, taskCard(taskRow, elapsed), {
@@ -224,7 +224,7 @@ async function sendTaskToAssignee(db, assigneeChatId, taskRow) {
   ]);
 }
 
-// ── /start ───────────────────────────────────────────────
+// в”Ђв”Ђ /start в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function showTaskFiles(chatId, taskId) {
   const db = getDb();
   const task = await getTgTask(db, taskId);
@@ -405,59 +405,59 @@ async function handleStart(msg) {
   const existing = await getTgUser(db, chatId);
   if (existing) {
     return bot.sendMessage(chatId,
-      `👋 С возвращением, <b>${existing.name}</b>!\n\nВыбери действие:`,
+      `рџ‘‹ РЎ РІРѕР·РІСЂР°С‰РµРЅРёРµРј, <b>${existing.name}</b>!\n\nР’С‹Р±РµСЂРё РґРµР№СЃС‚РІРёРµ:`,
       MAIN_MENU
     );
   }
   const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || "User";
   sessions.set(chatId, { state: "await_email", name });
   bot.sendMessage(chatId,
-    `👋 Привет, <b>${name}</b>!\n\nВведи свой email (как в Zoho), чтобы я мог назначать тебе задачи:`,
+    `рџ‘‹ РџСЂРёРІРµС‚, <b>${name}</b>!\n\nР’РІРµРґРё СЃРІРѕР№ email (РєР°Рє РІ Zoho), С‡С‚РѕР±С‹ СЏ РјРѕРі РЅР°Р·РЅР°С‡Р°С‚СЊ С‚РµР±Рµ Р·Р°РґР°С‡Рё:`,
     { parse_mode: "HTML" }
   );
 }
 
-// ── Профиль ──────────────────────────────────────────────
+// в”Ђв”Ђ РџСЂРѕС„РёР»СЊ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleProfile(chatId) {
   const db = getDb();
   const user = await getTgUser(db, chatId);
-  if (!user) return bot.sendMessage(chatId, "Ты ещё не зарегистрирован. Нажми /start");
+  if (!user) return bot.sendMessage(chatId, "РўС‹ РµС‰С‘ РЅРµ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅ. РќР°Р¶РјРё /start");
   bot.sendMessage(chatId,
-    `👤 <b>Профиль</b>\n\n` +
-    `Имя: ${user.name}\n` +
+    `рџ‘¤ <b>РџСЂРѕС„РёР»СЊ</b>\n\n` +
+    `РРјСЏ: ${user.name}\n` +
     `Email: ${user.email}\n\n` +
-    `Для смены email — напиши новый email сюда.`,
+    `Р”Р»СЏ СЃРјРµРЅС‹ email вЂ” РЅР°РїРёС€Рё РЅРѕРІС‹Р№ email СЃСЋРґР°.`,
     { parse_mode: "HTML" }
   );
 }
 
-// ── Подключить Zoho ──────────────────────────────────────
+// в”Ђв”Ђ РџРѕРґРєР»СЋС‡РёС‚СЊ Zoho в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleConnectZoho(chatId) {
   const db = getDb();
   const tgUser = await getTgUser(db, chatId);
   if (!tgUser) {
-    return bot.sendMessage(chatId, "Сначала зарегистрируйся — нажми /start");
+    return bot.sendMessage(chatId, "РЎРЅР°С‡Р°Р»Р° Р·Р°СЂРµРіРёСЃС‚СЂРёСЂСѓР№СЃСЏ вЂ” РЅР°Р¶РјРё /start");
   }
   try {
     const url = buildZohoAuthUrlForBot(chatId);
     const isConnected = Boolean(tgUser.zoho_refresh_token);
     bot.sendMessage(chatId,
       (isConnected
-        ? `✅ Zoho уже подключён.\n\nЕсли хочешь переподключить аккаунт — нажми кнопку ниже.`
-        : `🔗 <b>Подключи свой Zoho-аккаунт</b>\n\nПосле подключения задачи будут создаваться и закрываться от твоего имени.`) +
-      `\n\n<a href="${url}">👉 Нажми сюда для авторизации в Zoho</a>`,
+        ? `вњ… Zoho СѓР¶Рµ РїРѕРґРєР»СЋС‡С‘РЅ.\n\nР•СЃР»Рё С…РѕС‡РµС€СЊ РїРµСЂРµРїРѕРґРєР»СЋС‡РёС‚СЊ Р°РєРєР°СѓРЅС‚ вЂ” РЅР°Р¶РјРё РєРЅРѕРїРєСѓ РЅРёР¶Рµ.`
+        : `рџ”— <b>РџРѕРґРєР»СЋС‡Рё СЃРІРѕР№ Zoho-Р°РєРєР°СѓРЅС‚</b>\n\nРџРѕСЃР»Рµ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Р·Р°РґР°С‡Рё Р±СѓРґСѓС‚ СЃРѕР·РґР°РІР°С‚СЊСЃСЏ Рё Р·Р°РєСЂС‹РІР°С‚СЊСЃСЏ РѕС‚ С‚РІРѕРµРіРѕ РёРјРµРЅРё.`) +
+      `\n\n<a href="${url}">рџ‘‰ РќР°Р¶РјРё СЃСЋРґР° РґР»СЏ Р°РІС‚РѕСЂРёР·Р°С†РёРё РІ Zoho</a>`,
       { parse_mode: "HTML", disable_web_page_preview: true }
     );
   } catch (e) {
-    bot.sendMessage(chatId, `❌ Ошибка: ${e.message}`);
+    bot.sendMessage(chatId, `вќЊ РћС€РёР±РєР°: ${e.message}`);
   }
 }
 
-// ── Статистика ───────────────────────────────────────────
+// в”Ђв”Ђ РЎС‚Р°С‚РёСЃС‚РёРєР° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleStats(chatId) {
   const db = getDb();
   const user = await getTgUser(db, chatId);
-  if (!user) return bot.sendMessage(chatId, "Сначала зарегистрируйся — нажми /start");
+  if (!user) return bot.sendMessage(chatId, "РЎРЅР°С‡Р°Р»Р° Р·Р°СЂРµРіРёСЃС‚СЂРёСЂСѓР№СЃСЏ вЂ” РЅР°Р¶РјРё /start");
 
   const now = new Date();
   const monday = new Date(now);
@@ -479,52 +479,52 @@ async function handleStats(chatId) {
 
   const s = q.rows[0];
   bot.sendMessage(chatId,
-    `📊 <b>Твоя статистика</b>\n\n` +
-    `<b>Эта неделя:</b>\n` +
-    `• Задач закрыто: ${s.week_tasks}\n` +
-    `• Время залогировано: ${fmt(Number(s.week_seconds))}\n\n` +
-    `<b>Этот месяц:</b>\n` +
-    `• Задач закрыто: ${s.month_tasks}\n` +
-    `• Время залогировано: ${fmt(Number(s.month_seconds))}\n\n` +
-    `<b>За всё время:</b>\n` +
-    `• Задач закрыто: ${s.all_tasks}\n` +
-    `• Время залогировано: ${fmt(Number(s.all_seconds))}`,
+    `рџ“Љ <b>РўРІРѕСЏ СЃС‚Р°С‚РёСЃС‚РёРєР°</b>\n\n` +
+    `<b>Р­С‚Р° РЅРµРґРµР»СЏ:</b>\n` +
+    `вЂў Р—Р°РґР°С‡ Р·Р°РєСЂС‹С‚Рѕ: ${s.week_tasks}\n` +
+    `вЂў Р’СЂРµРјСЏ Р·Р°Р»РѕРіРёСЂРѕРІР°РЅРѕ: ${fmt(Number(s.week_seconds))}\n\n` +
+    `<b>Р­С‚РѕС‚ РјРµСЃСЏС†:</b>\n` +
+    `вЂў Р—Р°РґР°С‡ Р·Р°РєСЂС‹С‚Рѕ: ${s.month_tasks}\n` +
+    `вЂў Р’СЂРµРјСЏ Р·Р°Р»РѕРіРёСЂРѕРІР°РЅРѕ: ${fmt(Number(s.month_seconds))}\n\n` +
+    `<b>Р—Р° РІСЃС‘ РІСЂРµРјСЏ:</b>\n` +
+    `вЂў Р—Р°РґР°С‡ Р·Р°РєСЂС‹С‚Рѕ: ${s.all_tasks}\n` +
+    `вЂў Р’СЂРµРјСЏ Р·Р°Р»РѕРіРёСЂРѕРІР°РЅРѕ: ${fmt(Number(s.all_seconds))}`,
     { parse_mode: "HTML" }
   );
 }
 
-// ── Помощь ───────────────────────────────────────────────
+// в”Ђв”Ђ РџРѕРјРѕС‰СЊ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 function handleHelp(chatId) {
   bot.sendMessage(chatId,
-    `❓ <b>Как пользоваться ботом:</b>\n\n` +
-    `➕ <b>Создать задачу</b> — выбери проект, введи название, выбери исполнителя. Задача появится в Zoho и отправится исполнителю в личку.\n\n` +
-    `📁 <b>Проекты</b> — просмотр задач по проектам. Нажми на задачу, чтобы взять её себе.\n\n` +
-    `▶️ <b>Старт / ⏸ Пауза</b> — управление таймером прямо в сообщении.\n\n` +
-    `✅ <b>Закрыть задачу</b> — время улетает в Zoho, задача закрывается.`,
+    `вќ“ <b>РљР°Рє РїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ Р±РѕС‚РѕРј:</b>\n\n` +
+    `вћ• <b>РЎРѕР·РґР°С‚СЊ Р·Р°РґР°С‡Сѓ</b> вЂ” РІС‹Р±РµСЂРё РїСЂРѕРµРєС‚, РІРІРµРґРё РЅР°Р·РІР°РЅРёРµ, РІС‹Р±РµСЂРё РёСЃРїРѕР»РЅРёС‚РµР»СЏ. Р—Р°РґР°С‡Р° РїРѕСЏРІРёС‚СЃСЏ РІ Zoho Рё РѕС‚РїСЂР°РІРёС‚СЃСЏ РёСЃРїРѕР»РЅРёС‚РµР»СЋ РІ Р»РёС‡РєСѓ.\n\n` +
+    `рџ“Ѓ <b>РџСЂРѕРµРєС‚С‹</b> вЂ” РїСЂРѕСЃРјРѕС‚СЂ Р·Р°РґР°С‡ РїРѕ РїСЂРѕРµРєС‚Р°Рј. РќР°Р¶РјРё РЅР° Р·Р°РґР°С‡Сѓ, С‡С‚РѕР±С‹ РІР·СЏС‚СЊ РµС‘ СЃРµР±Рµ.\n\n` +
+    `в–¶пёЏ <b>РЎС‚Р°СЂС‚ / вЏё РџР°СѓР·Р°</b> вЂ” СѓРїСЂР°РІР»РµРЅРёРµ С‚Р°Р№РјРµСЂРѕРј РїСЂСЏРјРѕ РІ СЃРѕРѕР±С‰РµРЅРёРё.\n\n` +
+    `вњ… <b>Р—Р°РєСЂС‹С‚СЊ Р·Р°РґР°С‡Сѓ</b> вЂ” РІСЂРµРјСЏ СѓР»РµС‚Р°РµС‚ РІ Zoho, Р·Р°РґР°С‡Р° Р·Р°РєСЂС‹РІР°РµС‚СЃСЏ.`,
     { parse_mode: "HTML" }
   );
 }
 
-// ── /projects ────────────────────────────────────────────
+// в”Ђв”Ђ /projects в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleProjects(chatId) {
   const db = getDb();
   const zohoUser = await getZohoUser(db);
-  if (!zohoUser) return cleanSend(chatId, "❌ Zoho не подключён.");
-  await cleanSend(chatId, "⏳ Загружаю проекты...");
+  if (!zohoUser) return cleanSend(chatId, "вќЊ Zoho РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ.");
+  await cleanSend(chatId, "вЏі Р—Р°РіСЂСѓР¶Р°СЋ РїСЂРѕРµРєС‚С‹...");
   try {
     const projects = await fetchZohoProjects(db, zohoUser);
-    if (!projects.length) return cleanSend(chatId, "Проектов не найдено.");
+    if (!projects.length) return cleanSend(chatId, "РџСЂРѕРµРєС‚РѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ.");
     sessions.set(chatId, { ...sessions.get(chatId), state: "search_project", projects, mode: "view" });
     await cleanSend(chatId,
-      `🔍 Найдено проектов: <b>${projects.length}</b>\n\nВведи название (или часть) для поиска:`,
+      `рџ”Ќ РќР°Р№РґРµРЅРѕ РїСЂРѕРµРєС‚РѕРІ: <b>${projects.length}</b>\n\nР’РІРµРґРё РЅР°Р·РІР°РЅРёРµ (РёР»Рё С‡Р°СЃС‚СЊ) РґР»СЏ РїРѕРёСЃРєР°:`,
       { parse_mode: "HTML" }
     );
   } catch (e) {
-    cleanSend(chatId, `❌ Ошибка: ${e.message}`);
+    cleanSend(chatId, `вќЊ РћС€РёР±РєР°: ${e.message}`);
   }
 }
 
-// ── Показать отфильтрованные проекты ─────────────────────
+// в”Ђв”Ђ РџРѕРєР°Р·Р°С‚СЊ РѕС‚С„РёР»СЊС‚СЂРѕРІР°РЅРЅС‹Рµ РїСЂРѕРµРєС‚С‹ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function showFilteredProjects(chatId, projects, query, mode) {
   const filtered = query
     ? projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
@@ -532,7 +532,7 @@ async function showFilteredProjects(chatId, projects, query, mode) {
 
   if (!filtered.length) {
     return cleanSend(chatId,
-      `❌ Проект "<b>${query}</b>" не найден.\nПопробуй другое название:`,
+      `вќЊ РџСЂРѕРµРєС‚ "<b>${query}</b>" РЅРµ РЅР°Р№РґРµРЅ.\nРџРѕРїСЂРѕР±СѓР№ РґСЂСѓРіРѕРµ РЅР°Р·РІР°РЅРёРµ:`,
       { parse_mode: "HTML" }
     );
   }
@@ -541,39 +541,39 @@ async function showFilteredProjects(chatId, projects, query, mode) {
   const keyboard = {
     inline_keyboard: [
       ...filtered.slice(0, 20).map((p) => ([
-        { text: `📁 ${p.name}`, callback_data: `${prefix}${p.id}` },
+        { text: `рџ“Ѓ ${p.name}`, callback_data: `${prefix}${p.id}` },
       ])),
-      [{ text: "🔍 Новый поиск", callback_data: `search_again_${mode}` }],
+      [{ text: "рџ”Ќ РќРѕРІС‹Р№ РїРѕРёСЃРє", callback_data: `search_again_${mode}` }],
     ],
   };
   await cleanSend(chatId,
     filtered.length === projects.length
-      ? `📁 Все проекты (${filtered.length}):`
-      : `📁 Найдено: <b>${filtered.length}</b> из ${projects.length}:`,
+      ? `рџ“Ѓ Р’СЃРµ РїСЂРѕРµРєС‚С‹ (${filtered.length}):`
+      : `рџ“Ѓ РќР°Р№РґРµРЅРѕ: <b>${filtered.length}</b> РёР· ${projects.length}:`,
     { parse_mode: "HTML", reply_markup: keyboard }
   );
 }
 
-// ── /newtask ─────────────────────────────────────────────
+// в”Ђв”Ђ /newtask в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleNewTask(chatId) {
   const db = getDb();
   const zohoUser = await getZohoUser(db);
-  if (!zohoUser) return bot.sendMessage(chatId, "❌ Zoho не подключён.");
-  await cleanSend(chatId, "⏳ Загружаю проекты...");
+  if (!zohoUser) return bot.sendMessage(chatId, "вќЊ Zoho РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ.");
+  await cleanSend(chatId, "вЏі Р—Р°РіСЂСѓР¶Р°СЋ РїСЂРѕРµРєС‚С‹...");
   try {
     const projects = await fetchZohoProjects(db, zohoUser);
-    if (!projects.length) return cleanSend(chatId, "Проектов не найдено.");
+    if (!projects.length) return cleanSend(chatId, "РџСЂРѕРµРєС‚РѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ.");
     sessions.set(chatId, { state: "search_project", projects, mode: "newtask" });
     await cleanSend(chatId,
-      `🔍 Найдено проектов: <b>${projects.length}</b>\n\nВведи название (или часть) для поиска:`,
+      `рџ”Ќ РќР°Р№РґРµРЅРѕ РїСЂРѕРµРєС‚РѕРІ: <b>${projects.length}</b>\n\nР’РІРµРґРё РЅР°Р·РІР°РЅРёРµ (РёР»Рё С‡Р°СЃС‚СЊ) РґР»СЏ РїРѕРёСЃРєР°:`,
       { parse_mode: "HTML" }
     );
   } catch (e) {
-    cleanSend(chatId, `❌ Ошибка: ${e.message}`);
+    cleanSend(chatId, `вќЊ РћС€РёР±РєР°: ${e.message}`);
   }
 }
 
-// ── callback_query handler ───────────────────────────────
+// в”Ђв”Ђ callback_query handler в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleCallback(query) {
   const chatId = query.message.chat.id;
   const data = query.data;
@@ -602,32 +602,32 @@ async function handleCallback(query) {
     return;
   }
 
-  // ── Выбор проекта (просмотр задач) ──
+  // в”Ђв”Ђ Р’С‹Р±РѕСЂ РїСЂРѕРµРєС‚Р° (РїСЂРѕСЃРјРѕС‚СЂ Р·Р°РґР°С‡) в”Ђв”Ђ
   if (data.startsWith("proj_")) {
     const projectId = data.slice(5);
     const zohoUser = await getZohoUser(db);
-    await cleanSend(chatId, "⏳ Загружаю задачи...");
+    await cleanSend(chatId, "вЏі Р—Р°РіСЂСѓР¶Р°СЋ Р·Р°РґР°С‡Рё...");
     try {
       const tasks = await fetchZohoTasks(db, zohoUser, projectId);
       const projects = await fetchZohoProjects(db, zohoUser);
       const project = projects.find((p) => p.id === projectId);
-      if (!tasks.length) return cleanSend(chatId, "Задач в проекте нет.");
+      if (!tasks.length) return cleanSend(chatId, "Р—Р°РґР°С‡ РІ РїСЂРѕРµРєС‚Рµ РЅРµС‚.");
       const keyboard = {
         inline_keyboard: tasks.map((t, idx) => ([
-          { text: `📌 ${t.name}`, callback_data: `task_${projectId}_idx${idx}` },
+          { text: `рџ“Њ ${t.name}`, callback_data: `task_${projectId}_idx${idx}` },
         ])),
       };
       sessions.set(chatId, { state: "task_list", projectId, project, tasks });
-      await cleanSend(chatId, `📁 <b>${project?.name}</b>\nВыбери задачу:`, {
+      await cleanSend(chatId, `рџ“Ѓ <b>${project?.name}</b>\nР’С‹Р±РµСЂРё Р·Р°РґР°С‡Сѓ:`, {
         parse_mode: "HTML", reply_markup: keyboard,
       });
     } catch (e) {
-      cleanSend(chatId, `❌ Ошибка: ${e.message}`);
+      cleanSend(chatId, `вќЊ РћС€РёР±РєР°: ${e.message}`);
     }
     return;
   }
 
-  // ── Выбор задачи → назначить на себя ──
+  // в”Ђв”Ђ Р’С‹Р±РѕСЂ Р·Р°РґР°С‡Рё в†’ РЅР°Р·РЅР°С‡РёС‚СЊ РЅР° СЃРµР±СЏ в”Ђв”Ђ
   if (data.startsWith("task_")) {
     const parts = data.split("_");
     const projectId = parts[1];
@@ -643,7 +643,7 @@ async function handleCallback(query) {
       zoho_project_id: projectId,
       zoho_project_name: project?.name || "",
       zoho_task_id: task.id,
-      zoho_task_name: task?.name || "Задача",
+      zoho_task_name: task?.name || "Р—Р°РґР°С‡Р°",
       assignee_chat_id: String(chatId),
       creator_chat_id: String(chatId),
       elapsed_seconds: 0,
@@ -662,7 +662,7 @@ async function handleCallback(query) {
     return;
   }
 
-  // ── ▶️ Старт таймера ──
+  // в”Ђв”Ђ в–¶пёЏ РЎС‚Р°СЂС‚ С‚Р°Р№РјРµСЂР° в”Ђв”Ђ
   if (data.startsWith("start_")) {
     const taskId = data.slice(6);
     const task = await getTgTask(db, taskId);
@@ -677,7 +677,7 @@ async function handleCallback(query) {
     return;
   }
 
-  // ── ⏸ Пауза ──
+  // в”Ђв”Ђ вЏё РџР°СѓР·Р° в”Ђв”Ђ
   if (data.startsWith("pause_")) {
     const taskId = data.slice(6);
     const task = await getTgTask(db, taskId);
@@ -692,7 +692,7 @@ async function handleCallback(query) {
     return;
   }
 
-  // ── ✅ Закрыть ──
+  // в”Ђв”Ђ вњ… Р—Р°РєСЂС‹С‚СЊ в”Ђв”Ђ
   if (data.startsWith("close_")) {
     const taskId = data.slice(6);
     const task = await getTgTask(db, taskId);
@@ -704,13 +704,13 @@ async function handleCallback(query) {
       [elapsed, taskId]
     );
 
-    bot.sendMessage(chatId, `⏳ Закрываю задачу в Zoho и логирую время <b>${fmt(elapsed)}</b>...`, { parse_mode: "HTML" });
+    bot.sendMessage(chatId, `вЏі Р—Р°РєСЂС‹РІР°СЋ Р·Р°РґР°С‡Сѓ РІ Zoho Рё Р»РѕРіРёСЂСѓСЋ РІСЂРµРјСЏ <b>${fmt(elapsed)}</b>...`, { parse_mode: "HTML" });
 
     try {
       const db2 = getDb();
       const zohoUser = await getZohoUserForChat(db2, chatId);
 
-      // Логируем время от имени пользователя
+      // Р›РѕРіРёСЂСѓРµРј РІСЂРµРјСЏ РѕС‚ РёРјРµРЅРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
       let timeLogged = false;
       let timeErrMsg = "";
       const tgUserForLog = await getTgUser(db2, chatId);
@@ -721,7 +721,7 @@ async function handleCallback(query) {
             db2, zohoUser,
             task.zoho_project_id, task.zoho_task_id,
             elapsed,
-            `Работа над задачей (Telegram бот)`,
+            `Р Р°Р±РѕС‚Р° РЅР°Рґ Р·Р°РґР°С‡РµР№ (Telegram Р±РѕС‚)`,
             ownerId
           );
           timeLogged = true;
@@ -731,7 +731,7 @@ async function handleCallback(query) {
         }
       }
 
-      // Закрываем задачу — отдельно, всегда
+      // Р—Р°РєСЂС‹РІР°РµРј Р·Р°РґР°С‡Сѓ вЂ” РѕС‚РґРµР»СЊРЅРѕ, РІСЃРµРіРґР°
       let taskClosed = false;
       let closeErrMsg = "";
       try {
@@ -743,16 +743,16 @@ async function handleCallback(query) {
       }
 
       if (taskClosed && timeLogged) {
-        bot.sendMessage(chatId, `✅ Готово! Время <b>${fmt(elapsed)}</b> залогировано в Zoho. Задача закрыта.`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `вњ… Р“РѕС‚РѕРІРѕ! Р’СЂРµРјСЏ <b>${fmt(elapsed)}</b> Р·Р°Р»РѕРіРёСЂРѕРІР°РЅРѕ РІ Zoho. Р—Р°РґР°С‡Р° Р·Р°РєСЂС‹С‚Р°.`, { parse_mode: "HTML" });
       } else if (taskClosed && elapsed <= 60) {
-        bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\nВремя не засчитано — меньше минуты.`);
+        bot.sendMessage(chatId, `вњ… Р—Р°РґР°С‡Р° Р·Р°РєСЂС‹С‚Р° РІ Zoho.\nР’СЂРµРјСЏ РЅРµ Р·Р°СЃС‡РёС‚Р°РЅРѕ вЂ” РјРµРЅСЊС€Рµ РјРёРЅСѓС‚С‹.`);
       } else if (taskClosed) {
-        bot.sendMessage(chatId, `✅ Задача закрыта в Zoho.\n⚠️ Время не удалось залогировать (${fmt(elapsed)}).\n\n<code>${timeErrMsg}</code>`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `вњ… Р—Р°РґР°С‡Р° Р·Р°РєСЂС‹С‚Р° РІ Zoho.\nвљ пёЏ Р’СЂРµРјСЏ РЅРµ СѓРґР°Р»РѕСЃСЊ Р·Р°Р»РѕРіРёСЂРѕРІР°С‚СЊ (${fmt(elapsed)}).\n\n<code>${timeErrMsg}</code>`, { parse_mode: "HTML" });
       } else {
-        bot.sendMessage(chatId, `⚠️ Не удалось закрыть задачу в Zoho.\n\n<code>${closeErrMsg}</code>`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `вљ пёЏ РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РєСЂС‹С‚СЊ Р·Р°РґР°С‡Сѓ РІ Zoho.\n\n<code>${closeErrMsg}</code>`, { parse_mode: "HTML" });
       }
     } catch (e) {
-      bot.sendMessage(chatId, `⚠️ Ошибка Zoho: ${e.message}`);
+      bot.sendMessage(chatId, `вљ пёЏ РћС€РёР±РєР° Zoho: ${e.message}`);
     }
 
     try {
@@ -762,41 +762,41 @@ async function handleCallback(query) {
     return;
   }
 
-  // ── Новый поиск ──
+  // в”Ђв”Ђ РќРѕРІС‹Р№ РїРѕРёСЃРє в”Ђв”Ђ
   if (data.startsWith("search_again_")) {
     const mode = data.slice(13);
     const session = sessions.get(chatId) || {};
     sessions.set(chatId, { ...session, state: "search_project", mode });
-    await cleanSend(chatId, "🔍 Введи название проекта для поиска:", { parse_mode: "HTML" });
+    await cleanSend(chatId, "рџ”Ќ Р’РІРµРґРё РЅР°Р·РІР°РЅРёРµ РїСЂРѕРµРєС‚Р° РґР»СЏ РїРѕРёСЃРєР°:", { parse_mode: "HTML" });
     return;
   }
 
-  // ── Выбор проекта при создании новой задачи ──
+  // в”Ђв”Ђ Р’С‹Р±РѕСЂ РїСЂРѕРµРєС‚Р° РїСЂРё СЃРѕР·РґР°РЅРёРё РЅРѕРІРѕР№ Р·Р°РґР°С‡Рё в”Ђв”Ђ
   if (data.startsWith("newtask_proj_")) {
     const projectId = data.slice(13);
     const session = sessions.get(chatId) || {};
     const project = session.projects?.find((p) => p.id === projectId);
     sessions.set(chatId, { state: "newtask_enter_title", projectId, project });
-    await cleanSend(chatId, `📁 Проект: <b>${project?.name}</b>\n\nВведи название задачи:`, { parse_mode: "HTML" });
+    await cleanSend(chatId, `рџ“Ѓ РџСЂРѕРµРєС‚: <b>${project?.name}</b>\n\nР’РІРµРґРё РЅР°Р·РІР°РЅРёРµ Р·Р°РґР°С‡Рё:`, { parse_mode: "HTML" });
     return;
   }
 
-  // ── Выбор исполнителя при создании новой задачи ──
+  // в”Ђв”Ђ Р’С‹Р±РѕСЂ РёСЃРїРѕР»РЅРёС‚РµР»СЏ РїСЂРё СЃРѕР·РґР°РЅРёРё РЅРѕРІРѕР№ Р·Р°РґР°С‡Рё в”Ђв”Ђ
   if (data.startsWith("newtask_assign_")) {
     const idx = parseInt(data.slice(15), 10);
     const session = sessions.get(chatId) || {};
     const assignee = session.users?.[idx];
 
-    // Найти chat_id исполнителя по email
+    // РќР°Р№С‚Рё chat_id РёСЃРїРѕР»РЅРёС‚РµР»СЏ РїРѕ email
     const db2 = getDb();
-    let assigneeChatId = String(chatId); // fallback — создателю
+    let assigneeChatId = String(chatId); // fallback вЂ” СЃРѕР·РґР°С‚РµР»СЋ
     if (assignee?.email) {
       const tgQ = await db2.query(`SELECT chat_id FROM tg_users WHERE LOWER(email)=LOWER($1)`, [assignee.email]);
       if (tgQ.rows?.[0]) assigneeChatId = tgQ.rows[0].chat_id;
     }
 
     const zohoUser = await getZohoUserForChat(db2, chatId);
-    await cleanSend(chatId, "⏳ Создаю задачу в Zoho...");
+    await cleanSend(chatId, "вЏі РЎРѕР·РґР°СЋ Р·Р°РґР°С‡Сѓ РІ Zoho...");
     try {
       const created = await createZohoTask(db2, zohoUser, session.projectId, {
         name: session.title,
@@ -825,91 +825,91 @@ async function handleCallback(query) {
       );
 
       sessions.delete(chatId);
-      bot.sendMessage(chatId, `✅ Задача создана в Zoho и отправлена исполнителю.`);
+      bot.sendMessage(chatId, `вњ… Р—Р°РґР°С‡Р° СЃРѕР·РґР°РЅР° РІ Zoho Рё РѕС‚РїСЂР°РІР»РµРЅР° РёСЃРїРѕР»РЅРёС‚РµР»СЋ.`);
 
-      // Отправить исполнителю (если не сам себе)
+      // РћС‚РїСЂР°РІРёС‚СЊ РёСЃРїРѕР»РЅРёС‚РµР»СЋ (РµСЃР»Рё РЅРµ СЃР°Рј СЃРµР±Рµ)
       await sendTaskToAssignee(db2, assigneeChatId, taskRow);
       if (assigneeChatId !== String(chatId)) {
         bot.sendMessage(chatId,
-          `📨 Задача отправлена: <b>${assignee?.name || assignee?.email}</b>`,
+          `рџ“Ё Р—Р°РґР°С‡Р° РѕС‚РїСЂР°РІР»РµРЅР°: <b>${assignee?.name || assignee?.email}</b>`,
           { parse_mode: "HTML" }
         );
       }
     } catch (e) {
       console.error("[Bot] Task create error:", e);
-      bot.sendMessage(chatId, `❌ Ошибка создания задачи: ${e.message}\n<code>${e.cause?.message || e.code || ""}</code>`, { parse_mode: "HTML" });
+      bot.sendMessage(chatId, `вќЊ РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ Р·Р°РґР°С‡Рё: ${e.message}\n<code>${e.cause?.message || e.code || ""}</code>`, { parse_mode: "HTML" });
     }
     return;
   }
 }
 
-// ── Text message handler ─────────────────────────────────
+// в”Ђв”Ђ Text message handler в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 async function handleText(msg) {
   const chatId = msg.chat.id;
   const text = (msg.text || "").trim();
   const session = sessions.get(chatId);
   const db = getDb();
 
-  // ── Кнопки главного меню ──
-  if (text === "➕ Создать задачу")  return handleNewTask(chatId);
-  if (text === "📁 Проекты")        return handleProjects(chatId);
-  if (text === "👤 Мой профиль")    return handleProfile(chatId);
-  if (text === "🔗 Подключить Zoho") return handleConnectZoho(chatId);
-  if (text === "📊 Статистика")     return handleStats(chatId);
-  if (text === "❓ Помощь")         return handleHelp(chatId);
+  // в”Ђв”Ђ РљРЅРѕРїРєРё РіР»Р°РІРЅРѕРіРѕ РјРµРЅСЋ в”Ђв”Ђ
+  if (text === "вћ• РЎРѕР·РґР°С‚СЊ Р·Р°РґР°С‡Сѓ")  return handleNewTask(chatId);
+  if (text === "рџ“Ѓ РџСЂРѕРµРєС‚С‹")        return handleProjects(chatId);
+  if (text === "рџ‘¤ РњРѕР№ РїСЂРѕС„РёР»СЊ")    return handleProfile(chatId);
+  if (text === "рџ”— РџРѕРґРєР»СЋС‡РёС‚СЊ Zoho") return handleConnectZoho(chatId);
+  if (text === "рџ“Љ РЎС‚Р°С‚РёСЃС‚РёРєР°")     return handleStats(chatId);
+  if (text === "вќ“ РџРѕРјРѕС‰СЊ")         return handleHelp(chatId);
 
-  // ── Поиск проекта ──
+  // в”Ђв”Ђ РџРѕРёСЃРє РїСЂРѕРµРєС‚Р° в”Ђв”Ђ
   if (session?.state === "search_project") {
     await showFilteredProjects(chatId, session.projects, text, session.mode);
     return;
   }
 
-  // ── Регистрация email ──
+  // в”Ђв”Ђ Р РµРіРёСЃС‚СЂР°С†РёСЏ email в”Ђв”Ђ
   if (session?.state === "await_email") {
     const email = text.toLowerCase();
-    if (!email.includes("@")) return bot.sendMessage(chatId, "Введи корректный email:");
+    if (!email.includes("@")) return bot.sendMessage(chatId, "Р’РІРµРґРё РєРѕСЂСЂРµРєС‚РЅС‹Р№ email:");
     await saveTgUser(db, chatId, session.name, email);
     sessions.delete(chatId);
     return bot.sendMessage(chatId,
-      `✅ Готово! Ты зарегистрирован как <b>${session.name}</b> (${email}).\n\nВыбери действие:`,
+      `вњ… Р“РѕС‚РѕРІРѕ! РўС‹ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅ РєР°Рє <b>${session.name}</b> (${email}).\n\nР’С‹Р±РµСЂРё РґРµР№СЃС‚РІРёРµ:`,
       MAIN_MENU
     );
   }
 
-  // ── Смена email из профиля ──
+  // в”Ђв”Ђ РЎРјРµРЅР° email РёР· РїСЂРѕС„РёР»СЏ в”Ђв”Ђ
   if (!session && text.includes("@") && text.includes(".")) {
     const user = await getTgUser(db, chatId);
     if (user) {
       await saveTgUser(db, chatId, user.name, text.toLowerCase());
-      return bot.sendMessage(chatId, `✅ Email обновлён: ${text.toLowerCase()}`);
+      return bot.sendMessage(chatId, `вњ… Email РѕР±РЅРѕРІР»С‘РЅ: ${text.toLowerCase()}`);
     }
   }
 
-  // ── Ввод названия новой задачи ──
+  // в”Ђв”Ђ Р’РІРѕРґ РЅР°Р·РІР°РЅРёСЏ РЅРѕРІРѕР№ Р·Р°РґР°С‡Рё в”Ђв”Ђ
   if (session?.state === "newtask_enter_title") {
     sessions.set(chatId, { ...session, state: "newtask_select_assignee", title: text });
-    await cleanSend(chatId, "⏳ Загружаю участников проекта...");
+    await cleanSend(chatId, "вЏі Р—Р°РіСЂСѓР¶Р°СЋ СѓС‡Р°СЃС‚РЅРёРєРѕРІ РїСЂРѕРµРєС‚Р°...");
     try {
       const zohoUser = await getZohoUser(db);
       const allUsers = await fetchZohoProjectUsers(db, zohoUser, session.projectId);
       const tgUser = await getTgUser(db, chatId);
 
-      // Показываем только себя (по email из регистрации)
+      // РџРѕРєР°Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ СЃРµР±СЏ (РїРѕ email РёР· СЂРµРіРёСЃС‚СЂР°С†РёРё)
       const users = tgUser?.email
         ? allUsers.filter((u) => u.email.toLowerCase() === tgUser.email.toLowerCase())
         : allUsers;
 
-      if (!users.length) return cleanSend(chatId, "❌ Твой email не найден в участниках этого проекта. Попроси администратора добавить тебя в Zoho.");
+      if (!users.length) return cleanSend(chatId, "вќЊ РўРІРѕР№ email РЅРµ РЅР°Р№РґРµРЅ РІ СѓС‡Р°СЃС‚РЅРёРєР°С… СЌС‚РѕРіРѕ РїСЂРѕРµРєС‚Р°. РџРѕРїСЂРѕСЃРё Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° РґРѕР±Р°РІРёС‚СЊ С‚РµР±СЏ РІ Zoho.");
 
       sessions.set(chatId, { ...sessions.get(chatId), users });
       const keyboard = {
         inline_keyboard: users.map((u, idx) => ([
-          { text: `👤 ${u.name} (${u.email})`, callback_data: `newtask_assign_${idx}` },
+          { text: `рџ‘¤ ${u.name} (${u.email})`, callback_data: `newtask_assign_${idx}` },
         ])),
       };
-      await cleanSend(chatId, "👤 Подтверди исполнителя:", { reply_markup: keyboard });
+      await cleanSend(chatId, "рџ‘¤ РџРѕРґС‚РІРµСЂРґРё РёСЃРїРѕР»РЅРёС‚РµР»СЏ:", { reply_markup: keyboard });
     } catch (e) {
-      cleanSend(chatId, `❌ Ошибка: ${e.message}`);
+      cleanSend(chatId, `вќЊ РћС€РёР±РєР°: ${e.message}`);
     }
     return;
   }
@@ -938,17 +938,17 @@ function registerHandlers() {
 process.on("uncaughtException", (e) => console.error("[Bot] uncaughtException:", e));
 process.on("unhandledRejection", (e) => console.error("[Bot] unhandledRejection:", e));
 
-// ── Init bot ─────────────────────────────────────────────
+// в”Ђв”Ђ Init bot в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 export function startBot(app) {
   if (!TOKEN) {
-    console.warn("[Bot] TELEGRAM_BOT_TOKEN not set — bot disabled");
+    console.warn("[Bot] TELEGRAM_BOT_TOKEN not set вЂ” bot disabled");
     return;
   }
 
   const appUrl = String(process.env.APP_BASE_URL || "").replace(/\/+$/, "");
 
   if (appUrl) {
-    // ── Webhook mode (production) ──
+    // в”Ђв”Ђ Webhook mode (production) в”Ђв”Ђ
     bot = new TelegramBot(TOKEN, { polling: false });
     registerHandlers();
 
@@ -964,7 +964,7 @@ export function startBot(app) {
 
     console.log("[Bot] Webhook mode");
   } else {
-    // ── Polling mode (local dev) ──
+    // в”Ђв”Ђ Polling mode (local dev) в”Ђв”Ђ
     bot = new TelegramBot(TOKEN, { polling: true });
     registerHandlers();
     bot.on("polling_error", (e) => console.error("[Bot] polling error:", e.message));
@@ -972,94 +972,78 @@ export function startBot(app) {
   }
 
   process.on("SIGTERM", () => {
-    console.log("[Bot] SIGTERM — shutting down");
+    console.log("[Bot] SIGTERM вЂ” shutting down");
     (bot.isPolling() ? bot.stopPolling() : Promise.resolve()).then(() => process.exit(0));
   });
 
   const GROUP_ID = process.env.TELEGRAM_CHAT_ID;
 
-  // ── Уведомление об обновлении ──
+  // в”Ђв”Ђ РЈРІРµРґРѕРјР»РµРЅРёРµ РѕР± РѕР±РЅРѕРІР»РµРЅРёРё в”Ђв”Ђ
   if (GROUP_ID) {
     const appUrl = String(process.env.APP_BASE_URL || "").replace(/\/+$/, "");
     bot.sendMessage(GROUP_ID,
-      `🔄 <b>Engineer Tool обновлён!</b>\n\n` +
-      `🆕 <b>Что нового:</b>\n` +
-      `• 🌆 Напоминание о конце рабочего дня теперь приходит в <b>19:00</b> по Дубаю\n` +
-      `• 📅 Вечернее напоминание теперь работает только <b>по будням</b>\n` +
-      `• 🧹 Удалённые сообщения в общем и личном чате теперь исчезают полностью, без текста <code>[message deleted]</code>\n\n` +
-      (appUrl ? `🔗 <a href="${appUrl}">Открыть Engineer Tool</a>` : `✅ Обновление применено`),
+      `рџ”„ <b>Engineer Tool РѕР±РЅРѕРІР»С‘РЅ!</b>\n\n` +
+      `рџ†• <b>Р§С‚Рѕ РЅРѕРІРѕРіРѕ:</b>\n` +
+      `вЂў рџЊ† РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ РєРѕРЅС†Рµ СЂР°Р±РѕС‡РµРіРѕ РґРЅСЏ С‚РµРїРµСЂСЊ РїСЂРёС…РѕРґРёС‚ РІ <b>19:00</b> РїРѕ Р”СѓР±Р°СЋ\n` +
+      `вЂў рџ“… Р’РµС‡РµСЂРЅРµРµ РЅР°РїРѕРјРёРЅР°РЅРёРµ С‚РµРїРµСЂСЊ СЂР°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ <b>РїРѕ Р±СѓРґРЅСЏРј</b>\n` +
+      `вЂў рџ§№ РЈРґР°Р»С‘РЅРЅС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ РІ РѕР±С‰РµРј Рё Р»РёС‡РЅРѕРј С‡Р°С‚Рµ С‚РµРїРµСЂСЊ РёСЃС‡РµР·Р°СЋС‚ РїРѕР»РЅРѕСЃС‚СЊСЋ, Р±РµР· С‚РµРєСЃС‚Р° <code>[message deleted]</code>\n\n` +
+      (appUrl ? `рџ”— <a href="${appUrl}">РћС‚РєСЂС‹С‚СЊ Engineer Tool</a>` : `вњ… РћР±РЅРѕРІР»РµРЅРёРµ РїСЂРёРјРµРЅРµРЅРѕ`),
       { parse_mode: "HTML" }
     );
   }
 
-  const remindedTasks = new Set(); // задачи, по которым уже отправили напоминание о долгом таймере
+  const remindedTasks = new Set(); // Р·Р°РґР°С‡Рё, РїРѕ РєРѕС‚РѕСЂС‹Рј СѓР¶Рµ РѕС‚РїСЂР°РІРёР»Рё РЅР°РїРѕРјРёРЅР°РЅРёРµ Рѕ РґРѕР»РіРѕРј С‚Р°Р№РјРµСЂРµ
 
-  const motivations = [
-    "Половина дня позади — ты уже молодец! 💪",
-    "Самое время сделать перерыв и вернуться с новыми силами ☕",
-    "Ты справляешься отлично. Осталось совсем чуть-чуть! 🎯",
-    "Не забывай пить воду и двигаться — продуктивность скажет спасибо 💧",
-    "Каждая закрытая задача — это маленькая победа 🏆",
-    "Ты ближе к концу дня, чем к его началу. Держись! 🚀",
-    "Лучший способ сделать много — делать по одному 🧩",
-    "Сегодня хороший день, чтобы закрыть пару задач 😎",
-  ];
 
   const mondayJokes = [
-    "Понедельник — это когда будильник звонит в 7 утра, а организм шлёт его куда подальше 📵",
-    "Говорят, понедельник — день тяжёлый. Но мы же не ищем лёгких путей! 💪",
-    "Понедельник: 5 дней до выходных. Начнём отсчёт! 🚀",
-    "Хорошая новость — сегодня понедельник, а значит следующий понедельник ещё далеко 😅",
-    "Понедельник — это маленький Новый год. Новая неделя, новые задачи, новые победы! 🎯",
-    "Наука доказала: понедельник наступает независимо от того, готов ты к нему или нет 🔬",
-    "Понедельник не такой страшный, если встретить его с задачами в Zoho и кофе в руке ☕",
-    "Все великие дела начинались в понедельник. Ну или во вторник, когда понедельник уже прошёл 😂",
+    "РџРѕРЅРµРґРµР»СЊРЅРёРє вЂ” СЌС‚Рѕ РєРѕРіРґР° Р±СѓРґРёР»СЊРЅРёРє Р·РІРѕРЅРёС‚ РІ 7 СѓС‚СЂР°, Р° РѕСЂРіР°РЅРёР·Рј С€Р»С‘С‚ РµРіРѕ РєСѓРґР° РїРѕРґР°Р»СЊС€Рµ рџ“µ",
+    "Р“РѕРІРѕСЂСЏС‚, РїРѕРЅРµРґРµР»СЊРЅРёРє вЂ” РґРµРЅСЊ С‚СЏР¶С‘Р»С‹Р№. РќРѕ РјС‹ Р¶Рµ РЅРµ РёС‰РµРј Р»С‘РіРєРёС… РїСѓС‚РµР№! рџ’Є",
+    "РџРѕРЅРµРґРµР»СЊРЅРёРє: 5 РґРЅРµР№ РґРѕ РІС‹С…РѕРґРЅС‹С…. РќР°С‡РЅС‘Рј РѕС‚СЃС‡С‘С‚! рџљЂ",
+    "РҐРѕСЂРѕС€Р°СЏ РЅРѕРІРѕСЃС‚СЊ вЂ” СЃРµРіРѕРґРЅСЏ РїРѕРЅРµРґРµР»СЊРЅРёРє, Р° Р·РЅР°С‡РёС‚ СЃР»РµРґСѓСЋС‰РёР№ РїРѕРЅРµРґРµР»СЊРЅРёРє РµС‰С‘ РґР°Р»РµРєРѕ рџ…",
+    "РџРѕРЅРµРґРµР»СЊРЅРёРє вЂ” СЌС‚Рѕ РјР°Р»РµРЅСЊРєРёР№ РќРѕРІС‹Р№ РіРѕРґ. РќРѕРІР°СЏ РЅРµРґРµР»СЏ, РЅРѕРІС‹Рµ Р·Р°РґР°С‡Рё, РЅРѕРІС‹Рµ РїРѕР±РµРґС‹! рџЋЇ",
+    "РќР°СѓРєР° РґРѕРєР°Р·Р°Р»Р°: РїРѕРЅРµРґРµР»СЊРЅРёРє РЅР°СЃС‚СѓРїР°РµС‚ РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ С‚РѕРіРѕ, РіРѕС‚РѕРІ С‚С‹ Рє РЅРµРјСѓ РёР»Рё РЅРµС‚ рџ”¬",
+    "РџРѕРЅРµРґРµР»СЊРЅРёРє РЅРµ С‚Р°РєРѕР№ СЃС‚СЂР°С€РЅС‹Р№, РµСЃР»Рё РІСЃС‚СЂРµС‚РёС‚СЊ РµРіРѕ СЃ Р·Р°РґР°С‡Р°РјРё РІ Zoho Рё РєРѕС„Рµ РІ СЂСѓРєРµ в•",
+    "Р’СЃРµ РІРµР»РёРєРёРµ РґРµР»Р° РЅР°С‡РёРЅР°Р»РёСЃСЊ РІ РїРѕРЅРµРґРµР»СЊРЅРёРє. РќСѓ РёР»Рё РІРѕ РІС‚РѕСЂРЅРёРє, РєРѕРіРґР° РїРѕРЅРµРґРµР»СЊРЅРёРє СѓР¶Рµ РїСЂРѕС€С‘Р» рџ‚",
   ];
 
-  // ── Утреннее напоминание: 10:00 Дубай (UTC+4 = 06:00 UTC), пн–пт ──
+  // в”Ђв”Ђ РЈС‚СЂРµРЅРЅРµРµ РЅР°РїРѕРјРёРЅР°РЅРёРµ: 10:00 Р”СѓР±Р°Р№ (UTC+4 = 06:00 UTC), РїРЅвЂ“РїС‚ в”Ђв”Ђ
   cron.schedule("0 6 * * 1-5", () => {
     if (!GROUP_ID) return;
-    const day = new Date().getDay(); // 1 = понедельник
+    const day = new Date().getDay(); // 1 = РїРѕРЅРµРґРµР»СЊРЅРёРє
     if (day === 1) {
       const joke = mondayJokes[Math.floor(Math.random() * mondayJokes.length)];
       bot.sendMessage(GROUP_ID,
-        `🌅 <b>С понедельником, команда!</b>\n\n` +
+        `рџЊ… <b>РЎ РїРѕРЅРµРґРµР»СЊРЅРёРєРѕРј, РєРѕРјР°РЅРґР°!</b>\n\n` +
         `${joke}\n\n` +
-        `Новая неделя — новые задачи. Открывай бот, создавай задачи и запускай таймер! 💼\n` +
-        `📲 Напишите мне в личку → <b>➕ Создать задачу</b>`,
+        `РќРѕРІР°СЏ РЅРµРґРµР»СЏ вЂ” РЅРѕРІС‹Рµ Р·Р°РґР°С‡Рё. РћС‚РєСЂС‹РІР°Р№ Р±РѕС‚, СЃРѕР·РґР°РІР°Р№ Р·Р°РґР°С‡Рё Рё Р·Р°РїСѓСЃРєР°Р№ С‚Р°Р№РјРµСЂ! рџ’ј\n` +
+        `рџ“І РќР°РїРёС€РёС‚Рµ РјРЅРµ РІ Р»РёС‡РєСѓ в†’ <b>вћ• РЎРѕР·РґР°С‚СЊ Р·Р°РґР°С‡Сѓ</b>`,
         { parse_mode: "HTML" }
       );
     } else {
       bot.sendMessage(GROUP_ID,
-        `🌅 <b>Доброе утро, команда!</b>\n\n` +
-        `Не забудьте открыть задачи на сегодня — запустите таймер, как только начнёте работу.\n\n` +
-        `📲 Напишите мне в личку → <b>➕ Создать задачу</b>`,
+        `рџЊ… <b>Р”РѕР±СЂРѕРµ СѓС‚СЂРѕ, РєРѕРјР°РЅРґР°!</b>\n\n` +
+        `РќРµ Р·Р°Р±СѓРґСЊС‚Рµ РѕС‚РєСЂС‹С‚СЊ Р·Р°РґР°С‡Рё РЅР° СЃРµРіРѕРґРЅСЏ вЂ” Р·Р°РїСѓСЃС‚РёС‚Рµ С‚Р°Р№РјРµСЂ, РєР°Рє С‚РѕР»СЊРєРѕ РЅР°С‡РЅС‘С‚Рµ СЂР°Р±РѕС‚Сѓ.\n\n` +
+        `рџ“І РќР°РїРёС€РёС‚Рµ РјРЅРµ РІ Р»РёС‡РєСѓ в†’ <b>вћ• РЎРѕР·РґР°С‚СЊ Р·Р°РґР°С‡Сѓ</b>`,
         { parse_mode: "HTML" }
       );
     }
     console.log("[Bot] Sent morning reminder");
   });
 
-  // ── Вечернее напоминание: 19:00 Дубай (UTC+4 = 15:00 UTC), пн–пт ──
+  // в”Ђв”Ђ Р’РµС‡РµСЂРЅРµРµ РЅР°РїРѕРјРёРЅР°РЅРёРµ: 19:00 Р”СѓР±Р°Р№ (UTC+4 = 15:00 UTC), РїРЅвЂ“РїС‚ в”Ђв”Ђ
   cron.schedule("0 15 * * 1-5", () => {
     if (!GROUP_ID) return;
     bot.sendMessage(GROUP_ID,
-      `🌆 <b>Конец рабочего дня!</b>\n\n` +
-      `Не забудьте закрыть все активные задачи — нажмите кнопку <b>✅ Закрыть задачу</b> в личке бота, чтобы время ушло в Zoho.\n\n` +
-      `Хорошего вечера! 👋`,
+      `рџЊ† <b>РљРѕРЅРµС† СЂР°Р±РѕС‡РµРіРѕ РґРЅСЏ!</b>\n\n` +
+      `РќРµ Р·Р°Р±СѓРґСЊС‚Рµ Р·Р°РєСЂС‹С‚СЊ РІСЃРµ Р°РєС‚РёРІРЅС‹Рµ Р·Р°РґР°С‡Рё вЂ” РЅР°Р¶РјРёС‚Рµ РєРЅРѕРїРєСѓ <b>вњ… Р—Р°РєСЂС‹С‚СЊ Р·Р°РґР°С‡Сѓ</b> РІ Р»РёС‡РєРµ Р±РѕС‚Р°, С‡С‚РѕР±С‹ РІСЂРµРјСЏ СѓС€Р»Рѕ РІ Zoho.\n\n` +
+      `РҐРѕСЂРѕС€РµРіРѕ РІРµС‡РµСЂР°! рџ‘‹`,
       { parse_mode: "HTML" }
     );
     console.log("[Bot] Sent evening reminder");
   });
 
-  // ── Мотивашка в обед: 13:00 Дубай (UTC+4 = 09:00 UTC), пн–пт ──
-  cron.schedule("0 9 * * 1-5", () => {
-    if (!GROUP_ID) return;
-    const msg = motivations[Math.floor(Math.random() * motivations.length)];
-    bot.sendMessage(GROUP_ID, `💬 ${msg}`, { parse_mode: "HTML" });
-  });
-
-  // ── Проверка долгих таймеров: каждые 30 минут ──
+  // в”Ђв”Ђ РњРѕС‚РёРІР°С€РєР° РІ РѕР±РµРґ: 13:00 Р”СѓР±Р°Р№ (UTC+4 = 09:00 UTC), РїРЅвЂ“РїС‚ в”Ђв”Ђ
+  // в”Ђв”Ђ РџСЂРѕРІРµСЂРєР° РґРѕР»РіРёС… С‚Р°Р№РјРµСЂРѕРІ: РєР°Р¶РґС‹Рµ 30 РјРёРЅСѓС‚ в”Ђв”Ђ
   cron.schedule("*/30 * * * *", async () => {
     const db = getDb();
     try {
@@ -1073,9 +1057,9 @@ export function startBot(app) {
         remindedTasks.add(task.id);
         const elapsed = getElapsed(task);
         bot.sendMessage(task.assignee_chat_id,
-          `⏰ <b>Таймер работает уже ${fmt(elapsed)}!</b>\n\n` +
-          `Задача «${task.zoho_task_name}» всё ещё активна.\n` +
-          `Не забудь поставить на паузу или закрыть.`,
+          `вЏ° <b>РўР°Р№РјРµСЂ СЂР°Р±РѕС‚Р°РµС‚ СѓР¶Рµ ${fmt(elapsed)}!</b>\n\n` +
+          `Р—Р°РґР°С‡Р° В«${task.zoho_task_name}В» РІСЃС‘ РµС‰С‘ Р°РєС‚РёРІРЅР°.\n` +
+          `РќРµ Р·Р°Р±СѓРґСЊ РїРѕСЃС‚Р°РІРёС‚СЊ РЅР° РїР°СѓР·Сѓ РёР»Рё Р·Р°РєСЂС‹С‚СЊ.`,
           { parse_mode: "HTML" }
         ).catch(() => {});
       }
@@ -1084,7 +1068,7 @@ export function startBot(app) {
     }
   });
 
-  // ── Пятничный отчёт: 18:00 Дубай (UTC+4 = 14:00 UTC) ──
+  // в”Ђв”Ђ РџСЏС‚РЅРёС‡РЅС‹Р№ РѕС‚С‡С‘С‚: 18:00 Р”СѓР±Р°Р№ (UTC+4 = 14:00 UTC) в”Ђв”Ђ
   cron.schedule("0 14 * * 5", async () => {
     if (!GROUP_ID) return;
     const db = getDb();
@@ -1106,17 +1090,17 @@ export function startBot(app) {
 
       if (!q.rows.length) return;
 
-      const medals = ["🥇", "🥈", "🥉"];
+      const medals = ["рџҐ‡", "рџҐ€", "рџҐ‰"];
       const lines = q.rows.map((r, i) =>
-        `${medals[i] || "▪️"} <b>${r.name || "Неизвестный"}</b> — ${fmt(Number(r.seconds))} (${r.tasks} задач)`
+        `${medals[i] || "в–ЄпёЏ"} <b>${r.name || "РќРµРёР·РІРµСЃС‚РЅС‹Р№"}</b> вЂ” ${fmt(Number(r.seconds))} (${r.tasks} Р·Р°РґР°С‡)`
       ).join("\n");
 
       const winner = q.rows[0];
       bot.sendMessage(GROUP_ID,
-        `🏆 <b>Итоги недели!</b>\n\n` +
+        `рџЏ† <b>РС‚РѕРіРё РЅРµРґРµР»Рё!</b>\n\n` +
         `${lines}\n\n` +
-        `🎉 Работяга недели: <b>${winner.name || "Неизвестный"}</b> — ${fmt(Number(winner.seconds))} залогировано!\n\n` +
-        `Отличная работа, команда! Хороших выходных 🎉`,
+        `рџЋ‰ Р Р°Р±РѕС‚СЏРіР° РЅРµРґРµР»Рё: <b>${winner.name || "РќРµРёР·РІРµСЃС‚РЅС‹Р№"}</b> вЂ” ${fmt(Number(winner.seconds))} Р·Р°Р»РѕРіРёСЂРѕРІР°РЅРѕ!\n\n` +
+        `РћС‚Р»РёС‡РЅР°СЏ СЂР°Р±РѕС‚Р°, РєРѕРјР°РЅРґР°! РҐРѕСЂРѕС€РёС… РІС‹С…РѕРґРЅС‹С… рџЋ‰`,
         { parse_mode: "HTML" }
       );
     } catch (e) {
