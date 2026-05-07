@@ -978,20 +978,6 @@ export function startBot(app) {
 
   const GROUP_ID = process.env.TELEGRAM_CHAT_ID;
 
-  // в”Ђв”Ђ РЈРІРµРґРѕРјР»РµРЅРёРµ РѕР± РѕР±РЅРѕРІР»РµРЅРёРё в”Ђв”Ђ
-  if (GROUP_ID) {
-    const appUrl = String(process.env.APP_BASE_URL || "").replace(/\/+$/, "");
-    bot.sendMessage(GROUP_ID,
-      `рџ”„ <b>Engineer Tool РѕР±РЅРѕРІР»С‘РЅ!</b>\n\n` +
-      `рџ†• <b>Р§С‚Рѕ РЅРѕРІРѕРіРѕ:</b>\n` +
-      `вЂў рџЊ† РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ РєРѕРЅС†Рµ СЂР°Р±РѕС‡РµРіРѕ РґРЅСЏ С‚РµРїРµСЂСЊ РїСЂРёС…РѕРґРёС‚ РІ <b>19:00</b> РїРѕ Р”СѓР±Р°СЋ\n` +
-      `вЂў рџ“… Р’РµС‡РµСЂРЅРµРµ РЅР°РїРѕРјРёРЅР°РЅРёРµ С‚РµРїРµСЂСЊ СЂР°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ <b>РїРѕ Р±СѓРґРЅСЏРј</b>\n` +
-      `вЂў рџ§№ РЈРґР°Р»С‘РЅРЅС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ РІ РѕР±С‰РµРј Рё Р»РёС‡РЅРѕРј С‡Р°С‚Рµ С‚РµРїРµСЂСЊ РёСЃС‡РµР·Р°СЋС‚ РїРѕР»РЅРѕСЃС‚СЊСЋ, Р±РµР· С‚РµРєСЃС‚Р° <code>[message deleted]</code>\n\n` +
-      (appUrl ? `рџ”— <a href="${appUrl}">РћС‚РєСЂС‹С‚СЊ Engineer Tool</a>` : `вњ… РћР±РЅРѕРІР»РµРЅРёРµ РїСЂРёРјРµРЅРµРЅРѕ`),
-      { parse_mode: "HTML" }
-    );
-  }
-
   const remindedTasks = new Set(); // Р·Р°РґР°С‡Рё, РїРѕ РєРѕС‚РѕСЂС‹Рј СѓР¶Рµ РѕС‚РїСЂР°РІРёР»Рё РЅР°РїРѕРјРёРЅР°РЅРёРµ Рѕ РґРѕР»РіРѕРј С‚Р°Р№РјРµСЂРµ
 
 
@@ -1040,31 +1026,6 @@ export function startBot(app) {
       { parse_mode: "HTML" }
     );
     console.log("[Bot] Sent evening reminder");
-  });
-
-  // в”Ђв”Ђ РџСЂРѕРІРµСЂРєР° РґРѕР»РіРёС… С‚Р°Р№РјРµСЂРѕРІ: РєР°Р¶РґС‹Рµ 30 РјРёРЅСѓС‚ в”Ђв”Ђ
-  cron.schedule("*/30 * * * *", async () => {
-    const db = getDb();
-    try {
-      const cutoff = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
-      const q = await db.query(
-        `SELECT * FROM tg_tasks WHERE status='running' AND timer_started_at < $1`,
-        [cutoff]
-      );
-      for (const task of q.rows) {
-        if (remindedTasks.has(task.id)) continue;
-        remindedTasks.add(task.id);
-        const elapsed = getElapsed(task);
-        bot.sendMessage(task.assignee_chat_id,
-          `вЏ° <b>РўР°Р№РјРµСЂ СЂР°Р±РѕС‚Р°РµС‚ СѓР¶Рµ ${fmt(elapsed)}!</b>\n\n` +
-          `Р—Р°РґР°С‡Р° В«${task.zoho_task_name}В» РІСЃС‘ РµС‰С‘ Р°РєС‚РёРІРЅР°.\n` +
-          `РќРµ Р·Р°Р±СѓРґСЊ РїРѕСЃС‚Р°РІРёС‚СЊ РЅР° РїР°СѓР·Сѓ РёР»Рё Р·Р°РєСЂС‹С‚СЊ.`,
-          { parse_mode: "HTML" }
-        ).catch(() => {});
-      }
-    } catch (e) {
-      console.error("[Bot] Long timer check error:", e.message);
-    }
   });
 
   // в”Ђв”Ђ РџСЏС‚РЅРёС‡РЅС‹Р№ РѕС‚С‡С‘С‚: 18:00 Р”СѓР±Р°Р№ (UTC+4 = 14:00 UTC) в”Ђв”Ђ
