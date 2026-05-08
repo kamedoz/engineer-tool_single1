@@ -27,9 +27,9 @@ const sessions = new Map();
 const MAIN_MENU = {
   reply_markup: {
     keyboard: [
-      [{ text: "Create task" }, { text: "Projects" }],
-      [{ text: "My profile" }, { text: "Connect Zoho" }],
-      [{ text: "Stats" }, { text: "Help" }],
+      [{ text: "Создать задачу" }, { text: "Проекты" }],
+      [{ text: "Мой профиль" }, { text: "Подключить Zoho" }],
+      [{ text: "Статистика" }, { text: "Помощь" }],
     ],
     resize_keyboard: true,
     persistent: true,
@@ -91,15 +91,15 @@ function taskKeyboard(taskId, status) {
   if (status === "running") {
     return {
       inline_keyboard: [[
-        { text: "Pause", callback_data: `pause_${taskId}` },
-        { text: "Close task", callback_data: `close_${taskId}` },
+        { text: "Пауза", callback_data: `pause_${taskId}` },
+        { text: "Закрыть задачу", callback_data: `close_${taskId}` },
       ]],
     };
   }
   return {
     inline_keyboard: [[
-      { text: "Start", callback_data: `start_${taskId}` },
-      { text: "Close task", callback_data: `close_${taskId}` },
+      { text: "Старт", callback_data: `start_${taskId}` },
+      { text: "Закрыть задачу", callback_data: `close_${taskId}` },
     ]],
   };
 }
@@ -246,7 +246,7 @@ async function showTaskFiles(chatId, taskId) {
 
   const zohoUser = await getZohoUserForChat(db, chatId);
   if (!zohoUser) {
-    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    await cleanSend(chatId, "Zoho не подключён. Сначала подключите Zoho в боте.");
     return;
   }
 
@@ -276,7 +276,7 @@ async function showTaskFiles(chatId, taskId) {
     const taskErr = taskFilesResult.status === "rejected" ? taskFilesResult.reason?.message : "";
     const folderErr = foldersResult.status === "rejected" ? foldersResult.reason?.message : "";
     const hint = projectErr || taskErr || folderErr
-      ? "\n\nIf files are missing, reconnect Zoho in the bot to refresh file permissions."
+      ? "\n\nЕсли файлы не отображаются, переподключите Zoho в боте, чтобы обновить доступ."
       : "";
     await cleanSend(chatId, `No downloadable Zoho files were found for this task.${hint}`);
     return;
@@ -307,7 +307,7 @@ async function showTaskFolder(chatId, taskId, folderId) {
 
   const zohoUser = await getZohoUserForChat(db, chatId);
   if (!zohoUser) {
-    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    await cleanSend(chatId, "Zoho не подключён. Сначала подключите Zoho в боте.");
     return;
   }
 
@@ -343,7 +343,7 @@ async function sendTaskFile(chatId, taskId, fileIndex) {
 
   const zohoUser = await getZohoUserForChat(db, chatId);
   if (!zohoUser) {
-    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    await cleanSend(chatId, "Zoho не подключён. Сначала подключите Zoho в боте.");
     return;
   }
 
@@ -365,7 +365,7 @@ async function sendTaskFile(chatId, taskId, fileIndex) {
   } catch (e) {
     await bot.sendMessage(
       chatId,
-      `Could not send the file.\n\n${e.message}\n\nReconnect Zoho in the bot if this connection is old.`
+      `Не удалось отправить файл.\n\n${e.message}\n\nЕсли подключение устарело, переподключите Zoho в боте.`
     );
   }
 }
@@ -383,7 +383,7 @@ async function sendScopedTaskFile(chatId, taskId, scope, fileIndex) {
 
   const zohoUser = await getZohoUserForChat(db, chatId);
   if (!zohoUser) {
-    await cleanSend(chatId, "Zoho is not connected. Please connect Zoho in the bot first.");
+    await cleanSend(chatId, "Zoho не подключён. Сначала подключите Zoho в боте.");
     return;
   }
 
@@ -405,7 +405,7 @@ async function sendScopedTaskFile(chatId, taskId, scope, fileIndex) {
   } catch (e) {
     await bot.sendMessage(
       chatId,
-      `Could not send the file.\n\n${e.message}\n\nReconnect Zoho in the bot if this connection is old.`
+      `Не удалось отправить файл.\n\n${e.message}\n\nЕсли подключение устарело, переподключите Zoho в боте.`
     );
   }
 }
@@ -416,14 +416,14 @@ async function handleStart(msg) {
   const existing = await getTgUser(db, chatId);
   if (existing) {
     return bot.sendMessage(chatId,
-      `Welcome back, <b>${existing.name}</b>!\n\nChoose an action:`,
+      `С возвращением, <b>${existing.name}</b>!\n\nВыберите действие:`,
       MAIN_MENU
     );
   }
   const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || "User";
   sessions.set(chatId, { state: "await_email", name });
   bot.sendMessage(chatId,
-    `Hello, <b>${name}</b>!\n\nEnter your email address used in Zoho so I can assign tasks to you:`,
+    `Привет, <b>${name}</b>!\n\nВведите свой email, который используется в Zoho, чтобы я мог назначать вам задачи:`,
     { parse_mode: "HTML" }
   );
 }
@@ -432,12 +432,12 @@ async function handleStart(msg) {
 async function handleProfile(chatId) {
   const db = getDb();
   const user = await getTgUser(db, chatId);
-  if (!user) return bot.sendMessage(chatId, "You are not registered yet. Press /start");
+  if (!user) return bot.sendMessage(chatId, "Вы ещё не зарегистрированы. Нажмите /start");
   bot.sendMessage(chatId,
-    `<b>Profile</b>\n\n` +
-    `Name: ${user.name}\n` +
+    `<b>Профиль</b>\n\n` +
+    `Имя: ${user.name}\n` +
     `Email: ${user.email}\n\n` +
-    `To change your email, just send the new email here.`,
+    `Чтобы изменить email, просто отправьте новый email сюда.`,
     { parse_mode: "HTML" }
   );
 }
@@ -447,20 +447,20 @@ async function handleConnectZoho(chatId) {
   const db = getDb();
   const tgUser = await getTgUser(db, chatId);
   if (!tgUser) {
-    return bot.sendMessage(chatId, "Register first by pressing /start");
+    return bot.sendMessage(chatId, "Сначала зарегистрируйтесь через /start");
   }
   try {
     const url = buildZohoAuthUrlForBot(chatId);
     const isConnected = Boolean(tgUser.zoho_refresh_token);
     bot.sendMessage(chatId,
       (isConnected
-        ? `Zoho is already connected.\n\nIf you want to reconnect your account, use the link below.`
-        : `<b>Connect your Zoho account</b>\n\nAfter that, tasks will be created and closed on your behalf.`) +
-      `\n\n<a href="${url}">Open Zoho authorization</a>`,
+        ? `Zoho уже подключён.\n\nЕсли хотите переподключить аккаунт, используйте ссылку ниже.`
+        : `<b>Подключите свой Zoho-аккаунт</b>\n\nПосле этого задачи будут создаваться и закрываться от вашего имени.`) +
+      `\n\n<a href="${url}">Открыть авторизацию Zoho</a>`,
       { parse_mode: "HTML", disable_web_page_preview: true }
     );
   } catch (e) {
-    bot.sendMessage(chatId, `Error: ${e.message}`);
+    bot.sendMessage(chatId, `Ошибка: ${e.message}`);
   }
 }
 
@@ -468,7 +468,7 @@ async function handleConnectZoho(chatId) {
 async function handleStats(chatId) {
   const db = getDb();
   const user = await getTgUser(db, chatId);
-  if (!user) return bot.sendMessage(chatId, "Register first by pressing /start");
+  if (!user) return bot.sendMessage(chatId, "Сначала зарегистрируйтесь через /start");
 
   const now = new Date();
   const monday = new Date(now);
@@ -490,16 +490,16 @@ async function handleStats(chatId) {
 
   const s = q.rows[0];
   bot.sendMessage(chatId,
-    `<b>Your stats</b>\n\n` +
-    `<b>This week:</b>\n` +
-    `- Closed tasks: ${s.week_tasks}\n` +
-    `- Logged time: ${fmt(Number(s.week_seconds))}\n\n` +
-    `<b>This month:</b>\n` +
-    `- Closed tasks: ${s.month_tasks}\n` +
-    `- Logged time: ${fmt(Number(s.month_seconds))}\n\n` +
-    `<b>All time:</b>\n` +
-    `- Closed tasks: ${s.all_tasks}\n` +
-    `- Logged time: ${fmt(Number(s.all_seconds))}`,
+    `<b>Ваша статистика</b>\n\n` +
+    `<b>Эта неделя:</b>\n` +
+    `- Закрыто задач: ${s.week_tasks}\n` +
+    `- Залогировано времени: ${fmt(Number(s.week_seconds))}\n\n` +
+    `<b>Этот месяц:</b>\n` +
+    `- Закрыто задач: ${s.month_tasks}\n` +
+    `- Залогировано времени: ${fmt(Number(s.month_seconds))}\n\n` +
+    `<b>За всё время:</b>\n` +
+    `- Закрыто задач: ${s.all_tasks}\n` +
+    `- Залогировано времени: ${fmt(Number(s.all_seconds))}`,
     { parse_mode: "HTML" }
   );
 }
@@ -507,11 +507,11 @@ async function handleStats(chatId) {
 // в”Ђв”Ђ РџРѕРјРѕС‰СЊ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 function handleHelp(chatId) {
   bot.sendMessage(chatId,
-    `<b>How to use the bot</b>\n\n` +
-    `<b>Create task</b> — choose a project, enter a task name, and pick an assignee. The task will be created in Zoho and sent to the assignee.\n\n` +
-    `<b>Projects</b> — browse project tasks. Tap a task to take it for yourself.\n\n` +
-    `<b>Start / Pause</b> — control the timer directly from the task message.\n\n` +
-    `<b>Close task</b> — logs time to Zoho and closes the task.`,
+    `<b>Как пользоваться ботом</b>\n\n` +
+    `<b>Создать задачу</b> — выберите проект, введите название задачи и назначьте исполнителя. Задача будет создана в Zoho и отправлена исполнителю.\n\n` +
+    `<b>Проекты</b> — просмотр задач по проектам. Нажмите на задачу, чтобы взять её себе.\n\n` +
+    `<b>Старт / Пауза</b> — управление таймером прямо из сообщения задачи.\n\n` +
+    `<b>Закрыть задачу</b> — время уйдёт в Zoho, а задача будет закрыта.`,
     { parse_mode: "HTML" }
   );
 }
@@ -520,18 +520,18 @@ function handleHelp(chatId) {
 async function handleProjects(chatId) {
   const db = getDb();
   const zohoUser = await getZohoUser(db);
-  if (!zohoUser) return cleanSend(chatId, "Zoho is not connected.");
-  await cleanSend(chatId, "Loading projects...");
+  if (!zohoUser) return cleanSend(chatId, "Zoho не подключён.");
+  await cleanSend(chatId, "Загружаю проекты...");
   try {
     const projects = await fetchZohoProjects(db, zohoUser);
-    if (!projects.length) return cleanSend(chatId, "No projects found.");
+    if (!projects.length) return cleanSend(chatId, "Проекты не найдены.");
     sessions.set(chatId, { ...sessions.get(chatId), state: "search_project", projects, mode: "view" });
     await cleanSend(chatId,
-      `Found projects: <b>${projects.length}</b>\n\nEnter a project name or part of it to search:`,
+      `Найдено проектов: <b>${projects.length}</b>\n\nВведите название проекта или его часть для поиска:`,
       { parse_mode: "HTML" }
     );
   } catch (e) {
-    cleanSend(chatId, `Error: ${e.message}`);
+    cleanSend(chatId, `Ошибка: ${e.message}`);
   }
 }
 
@@ -543,7 +543,7 @@ async function showFilteredProjects(chatId, projects, query, mode) {
 
   if (!filtered.length) {
     return cleanSend(chatId,
-      `Project "<b>${query}</b>" was not found.\nTry a different name:`,
+      `Проект "<b>${query}</b>" не найден.\nПопробуйте другое название:`,
       { parse_mode: "HTML" }
     );
   }
@@ -554,13 +554,13 @@ async function showFilteredProjects(chatId, projects, query, mode) {
       ...filtered.slice(0, 20).map((p) => ([
         { text: `${p.name}`, callback_data: `${prefix}${p.id}` },
       ])),
-      [{ text: "Search again", callback_data: `search_again_${mode}` }],
+      [{ text: "Искать снова", callback_data: `search_again_${mode}` }],
     ],
   };
   await cleanSend(chatId,
     filtered.length === projects.length
-      ? `All projects (${filtered.length}):`
-      : `Found <b>${filtered.length}</b> of ${projects.length}:`,
+      ? `Все проекты (${filtered.length}):`
+      : `Найдено <b>${filtered.length}</b> из ${projects.length}:`,
     { parse_mode: "HTML", reply_markup: keyboard }
   );
 }
@@ -569,18 +569,18 @@ async function showFilteredProjects(chatId, projects, query, mode) {
 async function handleNewTask(chatId) {
   const db = getDb();
   const zohoUser = await getZohoUser(db);
-  if (!zohoUser) return bot.sendMessage(chatId, "Zoho is not connected.");
-  await cleanSend(chatId, "Loading projects...");
+  if (!zohoUser) return bot.sendMessage(chatId, "Zoho не подключён.");
+  await cleanSend(chatId, "Загружаю проекты...");
   try {
     const projects = await fetchZohoProjects(db, zohoUser);
-    if (!projects.length) return cleanSend(chatId, "No projects found.");
+    if (!projects.length) return cleanSend(chatId, "Проекты не найдены.");
     sessions.set(chatId, { state: "search_project", projects, mode: "newtask" });
     await cleanSend(chatId,
-      `Found projects: <b>${projects.length}</b>\n\nEnter a project name or part of it to search:`,
+      `Найдено проектов: <b>${projects.length}</b>\n\nВведите название проекта или его часть для поиска:`,
       { parse_mode: "HTML" }
     );
   } catch (e) {
-    cleanSend(chatId, `Error: ${e.message}`);
+    cleanSend(chatId, `Ошибка: ${e.message}`);
   }
 }
 
@@ -617,23 +617,23 @@ async function handleCallback(query) {
   if (data.startsWith("proj_")) {
     const projectId = data.slice(5);
     const zohoUser = await getZohoUser(db);
-    await cleanSend(chatId, "Loading tasks...");
+    await cleanSend(chatId, "Загружаю задачи...");
     try {
       const tasks = await fetchZohoTasks(db, zohoUser, projectId);
       const projects = await fetchZohoProjects(db, zohoUser);
       const project = projects.find((p) => p.id === projectId);
-      if (!tasks.length) return cleanSend(chatId, "No tasks found in this project.");
+      if (!tasks.length) return cleanSend(chatId, "В этом проекте задач нет.");
       const keyboard = {
         inline_keyboard: tasks.map((t, idx) => ([
           { text: `${t.name}`, callback_data: `task_${projectId}_idx${idx}` },
         ])),
       };
       sessions.set(chatId, { state: "task_list", projectId, project, tasks });
-      await cleanSend(chatId, `<b>${project?.name}</b>\nChoose a task:`, {
+      await cleanSend(chatId, `<b>${project?.name}</b>\nВыберите задачу:`, {
         parse_mode: "HTML", reply_markup: keyboard,
       });
     } catch (e) {
-      cleanSend(chatId, `Error: ${e.message}`);
+      cleanSend(chatId, `Ошибка: ${e.message}`);
     }
     return;
   }
@@ -715,7 +715,7 @@ async function handleCallback(query) {
       [elapsed, taskId]
     );
 
-    bot.sendMessage(chatId, `Closing the task in Zoho and logging <b>${fmt(elapsed)}</b>...`, { parse_mode: "HTML" });
+    bot.sendMessage(chatId, `Закрываю задачу в Zoho и логирую <b>${fmt(elapsed)}</b>...`, { parse_mode: "HTML" });
 
     try {
       const db2 = getDb();
@@ -732,7 +732,7 @@ async function handleCallback(query) {
             db2, zohoUser,
             task.zoho_project_id, task.zoho_task_id,
             elapsed,
-            `Work on the task (Telegram bot)`,
+            `Работа над задачей (Telegram bot)`,
             ownerId
           );
           timeLogged = true;
@@ -754,16 +754,16 @@ async function handleCallback(query) {
       }
 
       if (taskClosed && timeLogged) {
-        bot.sendMessage(chatId, `Done. Time <b>${fmt(elapsed)}</b> was logged to Zoho and the task was closed.`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `Готово. Время <b>${fmt(elapsed)}</b> залогировано в Zoho, задача закрыта.`, { parse_mode: "HTML" });
       } else if (taskClosed && elapsed <= 60) {
-        bot.sendMessage(chatId, `The task was closed in Zoho.\nTime was not logged because it was less than one minute.`);
+        bot.sendMessage(chatId, `Задача закрыта в Zoho.\nВремя не залогировано, потому что прошло меньше минуты.`);
       } else if (taskClosed) {
-        bot.sendMessage(chatId, `The task was closed in Zoho.\nTime could not be logged (${fmt(elapsed)}).\n\n<code>${timeErrMsg}</code>`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `Задача закрыта в Zoho.\nНе удалось залогировать время (${fmt(elapsed)}).\n\n<code>${timeErrMsg}</code>`, { parse_mode: "HTML" });
       } else {
-        bot.sendMessage(chatId, `Could not close the task in Zoho.\n\n<code>${closeErrMsg}</code>`, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, `Не удалось закрыть задачу в Zoho.\n\n<code>${closeErrMsg}</code>`, { parse_mode: "HTML" });
       }
     } catch (e) {
-      bot.sendMessage(chatId, `Zoho error: ${e.message}`);
+      bot.sendMessage(chatId, `Ошибка Zoho: ${e.message}`);
     }
 
     try {
@@ -778,7 +778,7 @@ async function handleCallback(query) {
     const mode = data.slice(13);
     const session = sessions.get(chatId) || {};
     sessions.set(chatId, { ...session, state: "search_project", mode });
-    await cleanSend(chatId, "Enter a project name to search:", { parse_mode: "HTML" });
+    await cleanSend(chatId, "Введите название проекта для поиска:", { parse_mode: "HTML" });
     return;
   }
 
@@ -788,7 +788,7 @@ async function handleCallback(query) {
     const session = sessions.get(chatId) || {};
     const project = session.projects?.find((p) => p.id === projectId);
     sessions.set(chatId, { state: "newtask_enter_title", projectId, project });
-    await cleanSend(chatId, `Project: <b>${project?.name}</b>\n\nEnter the task name:`, { parse_mode: "HTML" });
+    await cleanSend(chatId, `Проект: <b>${project?.name}</b>\n\nВведите название задачи:`, { parse_mode: "HTML" });
     return;
   }
 
@@ -807,7 +807,7 @@ async function handleCallback(query) {
     }
 
     const zohoUser = await getZohoUserForChat(db2, chatId);
-    await cleanSend(chatId, "Creating the task in Zoho...");
+    await cleanSend(chatId, "Создаю задачу в Zoho...");
     try {
       const created = await createZohoTask(db2, zohoUser, session.projectId, {
         name: session.title,
@@ -836,19 +836,19 @@ async function handleCallback(query) {
       );
 
       sessions.delete(chatId);
-      bot.sendMessage(chatId, `The task was created in Zoho and sent to the assignee.`);
+      bot.sendMessage(chatId, `Задача создана в Zoho и отправлена исполнителю.`);
 
       // РћС‚РїСЂР°РІРёС‚СЊ РёСЃРїРѕР»РЅРёС‚РµР»СЋ (РµСЃР»Рё РЅРµ СЃР°Рј СЃРµР±Рµ)
       await sendTaskToAssignee(db2, assigneeChatId, taskRow);
       if (assigneeChatId !== String(chatId)) {
         bot.sendMessage(chatId,
-          `Task sent to: <b>${assignee?.name || assignee?.email}</b>`,
+          `Задача отправлена: <b>${assignee?.name || assignee?.email}</b>`,
           { parse_mode: "HTML" }
         );
       }
     } catch (e) {
       console.error("[Bot] Task create error:", e);
-      bot.sendMessage(chatId, `Task creation error: ${e.message}\n<code>${e.cause?.message || e.code || ""}</code>`, { parse_mode: "HTML" });
+      bot.sendMessage(chatId, `Ошибка создания задачи: ${e.message}\n<code>${e.cause?.message || e.code || ""}</code>`, { parse_mode: "HTML" });
     }
     return;
   }
@@ -862,12 +862,12 @@ async function handleText(msg) {
   const db = getDb();
 
   // в”Ђв”Ђ РљРЅРѕРїРєРё РіР»Р°РІРЅРѕРіРѕ РјРµРЅСЋ в”Ђв”Ђ
-  if (matchesAny(text, ["Create task", "Создать задачу", "РЎРѕР·РґР°С‚СЊ", "➕", "+"])) return handleNewTask(chatId);
-  if (matchesAny(text, ["Projects", "Проект", "РџСЂРѕРµРєС‚"])) return handleProjects(chatId);
-  if (matchesAny(text, ["My profile", "Мой профиль", "Профиль", "РџСЂРѕС„РёР»СЊ"])) return handleProfile(chatId);
-  if (matchesAny(text, ["Connect Zoho", "Подключить Zoho", "Zoho", "РџРѕРґРєР»СЋС‡РёС‚СЊ Zoho"])) return handleConnectZoho(chatId);
-  if (matchesAny(text, ["Stats", "Статистика", "РЎС‚Р°С‚РёСЃС‚РёРєР°"])) return handleStats(chatId);
-  if (matchesAny(text, ["Help", "Помощь", "РџРѕРјРѕС‰СЊ"])) return handleHelp(chatId);
+  if (matchesAny(text, ["Создать задачу", "Create task", "РЎРѕР·РґР°С‚СЊ", "➕", "+"])) return handleNewTask(chatId);
+  if (matchesAny(text, ["Проекты", "Projects", "Проект", "РџСЂРѕРµРєС‚"])) return handleProjects(chatId);
+  if (matchesAny(text, ["Мой профиль", "Профиль", "My profile", "РџСЂРѕС„РёР»СЊ"])) return handleProfile(chatId);
+  if (matchesAny(text, ["Подключить Zoho", "Connect Zoho", "Zoho", "РџРѕРґРєР»СЋС‡РёС‚СЊ Zoho"])) return handleConnectZoho(chatId);
+  if (matchesAny(text, ["Статистика", "Stats", "РЎС‚Р°С‚РёСЃС‚РёРєР°"])) return handleStats(chatId);
+  if (matchesAny(text, ["Помощь", "Help", "РџРѕРјРѕС‰СЊ"])) return handleHelp(chatId);
 
   // в”Ђв”Ђ РџРѕРёСЃРє РїСЂРѕРµРєС‚Р° в”Ђв”Ђ
   if (session?.state === "search_project") {
@@ -878,11 +878,11 @@ async function handleText(msg) {
   // в”Ђв”Ђ Р РµРіРёСЃС‚СЂР°С†РёСЏ email в”Ђв”Ђ
   if (session?.state === "await_email") {
     const email = text.toLowerCase();
-    if (!email.includes("@")) return bot.sendMessage(chatId, "Enter a valid email address:");
+    if (!email.includes("@")) return bot.sendMessage(chatId, "Введите корректный email:");
     await saveTgUser(db, chatId, session.name, email);
     sessions.delete(chatId);
     return bot.sendMessage(chatId,
-      `Done. You are registered as <b>${session.name}</b> (${email}).\n\nChoose an action:`,
+      `Готово. Вы зарегистрированы как <b>${session.name}</b> (${email}).\n\nВыберите действие:`,
       MAIN_MENU
     );
   }
@@ -892,14 +892,14 @@ async function handleText(msg) {
     const user = await getTgUser(db, chatId);
     if (user) {
       await saveTgUser(db, chatId, user.name, text.toLowerCase());
-      return bot.sendMessage(chatId, `Email updated: ${text.toLowerCase()}`);
+      return bot.sendMessage(chatId, `Email обновлён: ${text.toLowerCase()}`);
     }
   }
 
   // в”Ђв”Ђ Р’РІРѕРґ РЅР°Р·РІР°РЅРёСЏ РЅРѕРІРѕР№ Р·Р°РґР°С‡Рё в”Ђв”Ђ
   if (session?.state === "newtask_enter_title") {
     sessions.set(chatId, { ...session, state: "newtask_select_assignee", title: text });
-    await cleanSend(chatId, "Loading project users...");
+    await cleanSend(chatId, "Загружаю участников проекта...");
     try {
       const zohoUser = await getZohoUser(db);
       const allUsers = await fetchZohoProjectUsers(db, zohoUser, session.projectId);
@@ -910,7 +910,7 @@ async function handleText(msg) {
         ? allUsers.filter((u) => u.email.toLowerCase() === tgUser.email.toLowerCase())
         : allUsers;
 
-      if (!users.length) return cleanSend(chatId, "Your email was not found among the users of this project. Ask the administrator to add you in Zoho.");
+      if (!users.length) return cleanSend(chatId, "Ваш email не найден среди участников этого проекта. Попросите администратора добавить вас в Zoho.");
 
       sessions.set(chatId, { ...sessions.get(chatId), users });
       const keyboard = {
@@ -918,9 +918,9 @@ async function handleText(msg) {
           { text: `${u.name} (${u.email})`, callback_data: `newtask_assign_${idx}` },
         ])),
       };
-      await cleanSend(chatId, "Confirm the assignee:", { reply_markup: keyboard });
+      await cleanSend(chatId, "Подтвердите исполнителя:", { reply_markup: keyboard });
     } catch (e) {
-      cleanSend(chatId, `Error: ${e.message}`);
+      cleanSend(chatId, `Ошибка: ${e.message}`);
     }
     return;
   }
@@ -1006,17 +1006,17 @@ export function startBot(app) {
     if (day === 1) {
       const joke = mondayJokes[Math.floor(Math.random() * mondayJokes.length)];
       bot.sendMessage(GROUP_ID,
-        `<b>Happy Monday, team.</b>\n\n` +
+        `<b>С понедельником, команда.</b>\n\n` +
         `${joke}\n\n` +
-        `Open the bot, create tasks, and start the timer when you begin work.\n\n` +
-        `Send me a private message and choose <b>Create task</b>.`,
+        `Откройте бота, создайте задачи и запускайте таймер, когда начинаете работу.\n\n` +
+        `Напишите мне в личные сообщения и выберите <b>Создать задачу</b>.`,
         { parse_mode: "HTML" }
       );
     } else {
       bot.sendMessage(GROUP_ID,
-        `<b>Good morning, team.</b>\n\n` +
-        `Please open your tasks for today and start the timer when work begins.\n\n` +
-        `Send me a private message and choose <b>Create task</b>.`,
+        `<b>Доброе утро, команда.</b>\n\n` +
+        `Пожалуйста, откройте задачи на сегодня и запустите таймер, когда начнёте работу.\n\n` +
+        `Напишите мне в личные сообщения и выберите <b>Создать задачу</b>.`,
         { parse_mode: "HTML" }
       );
     }
@@ -1027,9 +1027,9 @@ export function startBot(app) {
   cron.schedule("0 15 * * 1-5", () => {
     if (!GROUP_ID) return;
     bot.sendMessage(GROUP_ID,
-      `<b>End of the work day.</b>\n\n` +
-      `Please close all active tasks in the bot so time is sent to Zoho.\n\n` +
-      `Have a good evening.`,
+      `<b>Конец рабочего дня.</b>\n\n` +
+      `Пожалуйста, закройте все активные задачи в боте, чтобы время ушло в Zoho.\n\n` +
+      `Хорошего вечера.`,
       { parse_mode: "HTML" }
     );
     console.log("[Bot] Sent evening reminder");
@@ -1059,15 +1059,15 @@ export function startBot(app) {
 
       const medals = ["1.", "2.", "3."];
       const lines = q.rows.map((r, i) =>
-        `${medals[i] || "-"} <b>${r.name || "Unknown"}</b> — ${fmt(Number(r.seconds))} (${r.tasks} tasks)`
+        `${medals[i] || "-"} <b>${r.name || "Неизвестно"}</b> — ${fmt(Number(r.seconds))} (${r.tasks} задач)`
       ).join("\n");
 
       const winner = q.rows[0];
       bot.sendMessage(GROUP_ID,
-        `<b>Weekly summary</b>\n\n` +
+        `<b>Итоги недели</b>\n\n` +
         `${lines}\n\n` +
-        `Top performer of the week: <b>${winner.name || "Unknown"}</b> — ${fmt(Number(winner.seconds))} logged.\n\n` +
-        `Great work, team. Have a good weekend.`,
+        `Лучший результат недели: <b>${winner.name || "Неизвестно"}</b> — ${fmt(Number(winner.seconds))} залогировано.\n\n` +
+        `Отличная работа, команда. Хороших выходных.`,
         { parse_mode: "HTML" }
       );
     } catch (e) {
