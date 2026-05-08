@@ -104,6 +104,10 @@ function taskKeyboard(taskId, status) {
   };
 }
 
+function matchesAny(text, variants) {
+  return variants.some((variant) => text === variant || text.includes(variant));
+}
+
 // в”Ђв”Ђ DB helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 function taskKeyboardWithFiles(taskId, status) {
   if (status === "done") return { inline_keyboard: [] };
@@ -858,12 +862,12 @@ async function handleText(msg) {
   const db = getDb();
 
   // в”Ђв”Ђ РљРЅРѕРїРєРё РіР»Р°РІРЅРѕРіРѕ РјРµРЅСЋ в”Ђв”Ђ
-  if (text === "Create task") return handleNewTask(chatId);
-  if (text === "Projects") return handleProjects(chatId);
-  if (text === "My profile") return handleProfile(chatId);
-  if (text === "Connect Zoho") return handleConnectZoho(chatId);
-  if (text === "Stats") return handleStats(chatId);
-  if (text === "Help") return handleHelp(chatId);
+  if (matchesAny(text, ["Create task", "Создать задачу", "РЎРѕР·РґР°С‚СЊ", "➕", "+"])) return handleNewTask(chatId);
+  if (matchesAny(text, ["Projects", "Проект", "РџСЂРѕРµРєС‚"])) return handleProjects(chatId);
+  if (matchesAny(text, ["My profile", "Мой профиль", "Профиль", "РџСЂРѕС„РёР»СЊ"])) return handleProfile(chatId);
+  if (matchesAny(text, ["Connect Zoho", "Подключить Zoho", "Zoho", "РџРѕРґРєР»СЋС‡РёС‚СЊ Zoho"])) return handleConnectZoho(chatId);
+  if (matchesAny(text, ["Stats", "Статистика", "РЎС‚Р°С‚РёСЃС‚РёРєР°"])) return handleStats(chatId);
+  if (matchesAny(text, ["Help", "Помощь", "РџРѕРјРѕС‰СЊ"])) return handleHelp(chatId);
 
   // в”Ђв”Ђ РџРѕРёСЃРє РїСЂРѕРµРєС‚Р° в”Ђв”Ђ
   if (session?.state === "search_project") {
